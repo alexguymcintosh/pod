@@ -1,0 +1,6 @@
+#!/bin/sh
+# The one test command; CI runs it too: pytest (exit 5, no tests collected, passes).
+py=python3; [ -x .venv/bin/python ] && py=.venv/bin/python
+"$py" -m pytest --cov --cov-branch --cov-report=xml "$@"; rc=$?
+[ "$rc" -eq 5 ] && { echo "no tests yet"; exit 0; }
+exit "$rc"

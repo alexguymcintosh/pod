@@ -1,0 +1,455 @@
+<!doctype html>
+<!--
+  The pod's map: the rooms in the feeds, the rooms each member went to, each member's waypoints, and the
+  people each member knows (the wiki view). One page, no build step; it reads the repository's own files.
+  Ported from the 28 Oct London map (Leaflet 1.9.4, keyless Esri tiles).
+
+  It loads ../rooms/melbourne.geojson, ../rooms/venues.json and ../people/<member>/{rooms,network}.md with
+  fetch(), and browsers block fetch() from file:// pages, so serve the repository root and open the map over http:
+      python3 -m http.server 8000 --bind 127.0.0.1        (run in the repository root)
+      then open http://localhost:8000/map/
+  Refresh the data first with: python3 .agents/skills/rooms/fetch.py
+  A member with no folder yet is skipped, not an error. To look at the test fixtures instead of the members:
+      http://localhost:8000/map/?people=../tests/fixtures/people&members=ana,ben,cal
+
+  The zero-setup shareable map is GitHub's own: open rooms/melbourne.geojson on GitHub and it draws the
+  same points with popups. London from Jan 2027: point CITY below at rooms/london.geojson.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melbourne rooms</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<style>
+  :root {
+    --hud-bg: rgba(15, 20, 32, 0.93);
+    --hud-line: rgba(255, 255, 255, 0.12);
+    --hud-text: #e8ecf4;
+    --hud-dim: #9aa5ba;
+    --soon: #f97316;
+    --later: #2563eb;
+  }
+  html, body { margin: 0; height: 100%; background: #e9e6e0; }
+  body { font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--hud-text); }
+  #map { position: fixed; inset: 0; background: #e9e6e0; }
+
+  #panel {
+    position: fixed; top: 12px; right: 12px; z-index: 1000;
+    width: 340px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px);
+    display: flex; flex-direction: column;
+    background: var(--hud-bg); border: 1px solid var(--hud-line); border-radius: 14px;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.32);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  #panel header { display: flex; align-items: flex-start; gap: 10px; padding: 14px 14px 12px 16px; }
+  #panel header > div { flex: 1; min-width: 0; }
+  #panel h1 { margin: 0; font-size: 17px; line-height: 1.2; }
+  #panel .sub { margin: 4px 0 0; color: var(--hud-dim); font-size: 12px; }
+  #toggle {
+    flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--hud-line); background: rgba(255, 255, 255, 0.06); color: var(--hud-text);
+    font-size: 14px; line-height: 1;
+  }
+  #toggle:hover { background: rgba(255, 255, 255, 0.14); }
+  #toggle span { display: inline-block; transition: transform 0.15s; }
+  #panel.collapsed #toggle span { transform: rotate(-90deg); }
+  #panel.collapsed #panel-body { display: none; }
+  #panel-body { overflow-y: auto; padding: 0 8px 12px; border-top: 1px solid var(--hud-line); }
+  #panel h2 {
+    margin: 14px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--hud-dim);
+  }
+  #panel h2 b { color: var(--hud-text); margin-left: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 10px 8px 0; color: var(--hud-dim); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  .row {
+    display: flex; gap: 10px; align-items: flex-start; width: 100%; box-sizing: border-box;
+    margin: 0; padding: 7px 8px; text-align: left; font: inherit; color: inherit;
+    background: transparent; border: 0; border-radius: 9px; cursor: pointer;
+  }
+  .row.still { cursor: default; }
+  .row:hover, .row:focus-visible { background: rgba(255, 255, 255, 0.09); outline: none; }
+  .row.still:hover { background: transparent; }
+  .row:focus-visible { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
+  .row .txt { min-width: 0; }
+  .row .name { display: block; font-weight: 600; }
+  .row .tag { display: block; margin-top: 1px; color: var(--hud-dim); font-size: 12px; }
+  .row a { color: var(--hud-text); }
+  .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; margin: 3px 2px 0; border: 2px solid #fff; box-sizing: content-box; }
+  .dot.hollow { background: transparent !important; border-width: 3px; border-color: inherit; }
+  .count { display: flex; gap: 10px; align-items: baseline; margin: 2px 8px 6px; }
+  .count .who { font-weight: 600; min-width: 64px; }
+  .count .n { color: var(--hud-dim); font-size: 12px; }
+  .count .n b { color: var(--hud-text); font-size: 15px; margin-right: 2px; }
+  .empty, .err { margin: 4px 8px; color: var(--hud-dim); font-style: italic; font-size: 12px; }
+  .err { color: #fca5a5; font-style: normal; }
+  .err code { color: var(--hud-text); }
+
+  .leaflet-tooltip.anchor-tip { font: 600 12px system-ui, sans-serif; }
+  .pop { font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-width: 200px; max-width: 280px; }
+  .pop h3 { margin: 0 0 6px; font-size: 14px; }
+  .pop .ev { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.1); }
+  .pop .ev:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .pop .when { color: #3a4256; font-size: 12px; }
+  .pop a { font-weight: 600; }
+  .leaflet-popup-content { margin: 12px 14px; max-height: 320px; overflow-y: auto; }
+
+  @media (max-width: 640px) {
+    #panel { top: 8px; right: 8px; left: 8px; width: auto; max-width: none; max-height: 58vh; }
+    #panel h1 { font-size: 15px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #toggle span { transition: none; } }
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Map of Melbourne rooms"></div>
+
+<aside id="panel" aria-label="Rooms">
+  <header>
+    <div>
+      <h1>Melbourne rooms</h1>
+      <p class="sub" id="sub">loading rooms&hellip;</p>
+    </div>
+    <button id="toggle" type="button" aria-expanded="true" aria-controls="panel-body" title="Collapse or expand"><span aria-hidden="true">&#9662;</span></button>
+  </header>
+  <div id="panel-body">
+    <div class="legend" id="legend">
+      <span><i class="dot" style="background:var(--soon)"></i>next 7 days</span>
+      <span><i class="dot" style="background:var(--later)"></i>later</span>
+    </div>
+    <h2>The count</h2>
+    <div id="count"><p class="empty">Loading.</p></div>
+    <h2>Went<b id="n-went">0</b></h2>
+    <ul id="went-list"><li class="empty">Loading.</li></ul>
+    <h2>Going<b id="n-going">0</b></h2>
+    <ul id="going-list"><li class="empty">None.</li></ul>
+    <h2>People<b id="n-people">0</b></h2>
+    <ul id="people-list"><li class="empty">Loading.</li></ul>
+    <h2>Rooms<b id="n-rooms">0</b></h2>
+    <ul id="room-list"><li class="empty">Loading.</li></ul>
+    <h2>Not on the map<b id="n-unplaced">0</b></h2>
+    <ul id="unplaced-list"><li class="empty">None.</li></ul>
+  </div>
+</aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---------- config ----------
+  const CITY = { name: "Melbourne", tz: "Australia/Melbourne", center: [-37.8136, 144.9631], zoom: 13,
+                 data: "../rooms/melbourne.geojson", venues: "../rooms/venues.json" };
+  const SOON = "#f97316", LATER = "#2563eb";
+  // The members, copied by hand from POD.md's "Who we are" table; one colour each. A member with no
+  // folder under people/ yet is skipped. ?members=ana,ben&people=../tests/fixtures/people overrides both.
+  const MEMBERS = ["alex"];
+  const PALETTE = ["#0ea5e9", "#22c55e", "#a855f7", "#eab308", "#ec4899", "#14b8a6"];
+  const qs = new URLSearchParams(location.search);
+  const PEOPLE = /^[\w.][\w./-]*$/.test(qs.get("people") || "") ? qs.get("people") : "../people";   // never a /host path
+  const members = [...new Set((qs.get("members") || MEMBERS.join(",")).split(",").map(s => s.trim().toLowerCase())
+    .filter(s => /^[a-z0-9_-]+$/.test(s)))];
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const colorOf = m => PALETTE[members.indexOf(m) % PALETTE.length];
+
+  // Fixed places worth knowing, [lat, lon]. Event venues come from the data, not from here.
+  const ANCHORS = [
+    { name: "RMIT City campus", lat: -37.8083, lon: 144.9632, note: "Home ground: RAIsE." },
+    { name: "Melbourne Connect (Uni Melbourne)", lat: -37.7998, lon: 144.9641, note: "Innovation precinct, Carlton." },
+    { name: "Stone & Chalk", lat: -37.817251, lon: 144.955775, note: "Startup hub, 121 King St. MLAI's base." },
+    { name: "Cremorne Digital Hub", lat: -37.8304, lon: 144.9945, note: "80 Balmain St, Cremorne." },
+    { name: "Monash Clayton", lat: -37.9105, lon: 145.1340, note: "Monash main campus." },
+    { name: "La Trobe Bundoora", lat: -37.7213, lon: 145.0480, note: "La Trobe main campus." }
+  ];
+
+  // ---------- helpers ----------
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safeUrl = u => /^https?:\/\//i.test(u || "") ? u : "";
+  const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const when = iso => iso ? new Date(iso).toLocaleString("en-AU", { timeZone: CITY.tz, weekday: "short",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+  const soon = iso => new Date(iso) - Date.now() < 7 * 864e5;
+  const MID = " · ";
+
+  // ---------- the members' tables (the same rules as score.py) ----------
+  // Rows keyed by the lower-case header; separator rows and a pasted header dropped. A row whose first
+  // cell starts with "?" is a draft the member has not un-marked: it is read, flagged, and never shown.
+  function tableRows(text) {
+    const out = [];
+    let header = null;
+    for (const line of String(text || "").split(/\r?\n/)) {
+      const s = line.trim();
+      if (!s.startsWith("|")) { header = null; continue; }
+      const cells = s.replace(/^\|+/, "").replace(/\|+$/, "").split("|").map(c => c.trim());
+      if (!header) { header = cells.map(c => c.toLowerCase()); continue; }
+      if (cells.every(c => /^[-: ]*$/.test(c))) continue;
+      if (cells.map(c => c.toLowerCase()).join("|") === header.join("|")) continue;
+      const r = {};
+      header.forEach((h, i) => { r[h] = cells[i] || ""; });
+      r._first = cells[0] || "";
+      r._draft = r._first.startsWith("?");
+      out.push(r);
+    }
+    return out;
+  }
+  // "[Couch Conversations](https://...) 17:30" -> { title, url, rest }
+  function roomCell(cell) {
+    const m = /^\[([^\]]*)\]\(([^)]*)\)\s*(.*)$/.exec(cell || "");
+    return m ? { title: m[1], url: safeUrl(m[2]), rest: m[3] } : { title: cell || "", url: "", rest: "" };
+  }
+  // score.py's clean(): links to their text, bold and trailing punctuation off, then the "?" test.
+  const clean = s => String(s || "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[*\s.,;:]+|[*\s.,;:]+$/g, "");
+  const people = cell => String(cell || "").split(";").map(clean).filter(s => s && !s.startsWith("?"));
+  const firstName = name => clean(name).split("(")[0].trim().toLowerCase();
+
+  // A row's venue cell -> [lat, lon, name]: a venues.json entry with a match string in the cell; else the
+  // geojson feature with that venue and the row's URL, or with that venue when only one point carries it.
+  function pinFor(venueCell, venues, feats, roomUrl) {
+    const v = String(venueCell || "").toLowerCase().trim();
+    if (!v) return null;
+    for (const e of venues) {
+      if ((e.match || []).some(m => m && v.includes(String(m).toLowerCase()))) return [e.lat, e.lon, e.name];
+    }
+    const same = feats.filter(f => String(f.properties.venue || "").toLowerCase() === v);
+    const byUrl = roomUrl && same.find(f => f.properties.url === roomUrl);
+    const points = new Set(same.map(f => f.geometry.coordinates.join(",")));
+    const hit = byUrl || (points.size === 1 ? same[0] : null);
+    if (!hit) return null;
+    const [lon, lat] = hit.geometry.coordinates;
+    return [lat, lon, hit.properties.venue];
+  }
+
+  // ---------- map ----------
+  const map = L.map("map", { zoomSnap: 0.5, maxZoom: 19 }).setView(CITY.center, CITY.zoom);
+  const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+  const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  map.createPane("labels").style.zIndex = 420;
+  map.getPane("labels").style.pointerEvents = "none";
+  const lightBase = L.layerGroup([
+    L.tileLayer(ESRI + "Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      { attribution: ESRI_ATTR, maxNativeZoom: 16, maxZoom: 19 }),
+    L.tileLayer(ESRI + "Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+      { pane: "labels", maxNativeZoom: 16, maxZoom: 19 })
+  ]).addTo(map);
+  const streetsBase = L.tileLayer(ESRI + "World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    { attribution: ESRI_ATTR, maxNativeZoom: 19, maxZoom: 19 });
+  L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+  map.createPane("anchors").style.zIndex = 440;
+  map.createPane("pins").style.zIndex = 450;
+  map.createPane("went").style.zIndex = 460;
+
+  const anchorsGroup = L.layerGroup().addTo(map);
+  ANCHORS.forEach(p => {
+    L.circleMarker([p.lat, p.lon], { pane: "anchors", radius: 5, color: "#ffffff", weight: 2, fillColor: "#111827", fillOpacity: 1 })
+      .bindPopup(`<div class="pop"><h3>${esc(p.name)}</h3><p>${esc(p.note)}</p></div>`)
+      .bindTooltip(esc(p.name), { direction: "top", offset: [0, -6], className: "anchor-tip" })
+      .addTo(anchorsGroup);
+  });
+  const roomsGroup = L.layerGroup().addTo(map);
+  const wentGroup = L.layerGroup().addTo(map);
+  const goingGroup = L.layerGroup().addTo(map);
+  const waypointsGroup = L.layerGroup().addTo(map);
+  L.control.layers({ "Light": lightBase, "Streets": streetsBase },
+    { "Rooms": roomsGroup, "Went": wentGroup, "Going": goingGroup, "Waypoints": waypointsGroup, "Anchors": anchorsGroup },
+    { position: "topleft", collapsed: true }).addTo(map);
+
+  // ---------- panel ----------
+  const panel = document.getElementById("panel");
+  const toggle = document.getElementById("toggle");
+  L.DomEvent.disableClickPropagation(panel);
+  L.DomEvent.disableScrollPropagation(panel);
+  const narrow = () => window.matchMedia && matchMedia("(max-width: 640px)").matches;
+  function setCollapsed(c) { panel.classList.toggle("collapsed", c); toggle.setAttribute("aria-expanded", String(!c)); }
+  toggle.addEventListener("click", () => setCollapsed(!panel.classList.contains("collapsed")));
+  if (narrow()) setCollapsed(true);
+
+  function eventHtml(p) {
+    const url = safeUrl(p.url);
+    const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title);
+    return `<div class="ev">${title}<div class="when">${esc(when(p.start))}${MID}${esc(p.community)}</div></div>`;
+  }
+
+  function flyRow(dotStyle, nameHtml, tagText, target) {
+    const li = document.createElement("li");
+    const el = document.createElement(target ? "button" : "div");
+    if (target) el.type = "button";
+    el.className = "row" + (target ? "" : " still");
+    el.innerHTML = `<span class="dot" style="${dotStyle}"></span><span class="txt"><span class="name">${nameHtml}</span>` +
+      `<span class="tag">${esc(tagText)}</span></span>`;
+    if (target) {
+      el.addEventListener("click", () => {
+        const [m, lat, lon] = target;
+        map.once("moveend", () => m.openPopup());
+        map.flyTo([lat, lon], 16, { animate: !reduceMotion });
+        if (narrow()) setCollapsed(true);
+      });
+    }
+    li.appendChild(el);
+    return li;
+  }
+
+  function fill(listId, countId, items, emptyText) {
+    document.getElementById(listId).replaceChildren(...(items.length ? items
+      : [Object.assign(document.createElement("li"), { className: "empty", textContent: emptyText })]));
+    if (countId) document.getElementById(countId).textContent = items.length;
+  }
+
+  // ---------- the feeds' rooms ----------
+  function renderRooms(fc) {
+    const feats = (fc.features || []).filter(f => f.geometry && f.geometry.type === "Point")
+      .sort((a, b) => a.properties.start.localeCompare(b.properties.start));
+
+    // one marker per venue point, so six events at one hub stay clickable
+    const byPoint = new Map();
+    feats.forEach(f => {
+      const k = f.geometry.coordinates.map(n => n.toFixed(5)).join(",");
+      if (!byPoint.has(k)) byPoint.set(k, []);
+      byPoint.get(k).push(f);
+    });
+    const markerOf = new Map();
+    byPoint.forEach(group => {
+      const [lon, lat] = group[0].geometry.coordinates;   // GeoJSON is [lon, lat]
+      const first = group[0].properties;
+      const m = L.circleMarker([lat, lon], { pane: "pins", radius: 6 + Math.min(group.length, 6), color: "#ffffff",
+        weight: 2, fillColor: soon(first.start) ? SOON : LATER, fillOpacity: 1 })
+        .bindPopup(`<div class="pop"><h3>${esc(first.venue || "Venue")}</h3>${group.map(f => eventHtml(f.properties)).join("")}</div>`)
+        .bindTooltip(group.length > 1 ? `${group.length} rooms` : esc(first.title), { direction: "top", offset: [0, -6] })
+        .addTo(roomsGroup);
+      group.forEach(f => markerOf.set(f, [m, lat, lon]));
+    });
+
+    fill("room-list", "n-rooms", feats.map(f => {
+      const p = f.properties;
+      return flyRow(`background:${soon(p.start) ? SOON : LATER}`, esc(p.title), when(p.start) + MID + p.venue, markerOf.get(f));
+    }), "No rooms in the window. Run fetch.py.");
+
+    fill("unplaced-list", "n-unplaced", (fc.unplaced || []).map(p => {
+      const url = safeUrl(p.url);
+      const name = url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title);
+      return flyRow("background:#8a8f98", name, when(p.start) + MID + p.community + MID + "no pin: add its venue to rooms/venues.json", null);
+    }), "None.");
+
+    document.getElementById("sub").textContent =
+      `${feats.length} rooms in the next ${fc.window_days || 21} days` + (fc.generated ? `${MID}fetched ${when(fc.generated)}` : "");
+    return feats;
+  }
+
+  // ---------- the members: went, going, waypoints, people, the count ----------
+  function renderMembers(feats, venues, nodes) {
+    const legend = document.getElementById("legend");
+    nodes.forEach(n => {
+      const s = document.createElement("span");
+      s.innerHTML = `<i class="dot" style="background:${colorOf(n.member)}"></i>${esc(n.member)}`;
+      legend.appendChild(s);
+    });
+
+    const went = [], going = [], peopleRows = [], countRows = [];
+    const hasNode = new Set(nodes.map(n => n.member));
+    nodes.forEach((n, idx) => {
+      // members at one venue sit on a small ring (about 50 m) so each colour shows; going rows one step out
+      const ang = idx * 2 * Math.PI / Math.max(nodes.length, 1);
+      const ring = (k, lat) => [lat + k * 0.00045 * Math.sin(ang), k * 0.00045 * Math.cos(ang)];
+      const places = new Set();
+      n.rooms.filter(r => !r._draft && DATE_RE.test(r._first)).forEach(r => {
+        const status = (r.status || "").toLowerCase();
+        if (status !== "went" && status !== "going") return;
+        const room = roomCell(r.room);
+        const pin = pinFor(r.venue, venues, feats, room.url);
+        let target = null;
+        if (pin) {
+          const [lat, lon, name] = pin;
+          if (status === "went") places.add(name);
+          const who = people(r["who i met"]);
+          const title = room.url ? `<a href="${esc(room.url)}" target="_blank" rel="noopener">${esc(room.title)}</a>` : esc(room.title);
+          const k = idx === 0 && nodes.length === 1 ? 0 : 1;
+          const [nlat, dlon] = ring(status === "went" ? k : k * 1.8, lat);
+          const m = L.circleMarker([nlat, lon + dlon], { pane: "went", radius: Math.max(5, 8 - idx),
+            color: colorOf(n.member), weight: 3, fillColor: colorOf(n.member), fillOpacity: status === "went" ? 0.9 : 0.15 })
+            .bindPopup(`<div class="pop"><h3>${esc(name)}</h3><div class="ev">${title}<div class="when">${esc(r.date)} ${esc(room.rest)}${MID}${esc(n.member)}${MID}${esc(status)}</div>` +
+              (who.length ? `<div class="when">met: ${esc(who.join("; "))}</div>` : "") +
+              (r["what came of it"] ? `<div class="when">${esc(r["what came of it"])}</div>` : "") + `</div></div>`)
+            .bindTooltip(`${esc(n.member)}${MID}${esc(room.title)}`, { direction: "top", offset: [0, -6] })
+            .addTo(status === "went" ? wentGroup : goingGroup);
+          target = [m, lat, lon];
+        }
+        const tag = `${r._first} ${room.rest}${MID}${n.member}${MID}${r.venue || "no venue"}${pin ? "" : " (not in rooms/venues.json)"}`;
+        const dot = status === "went" ? `background:${colorOf(n.member)}` : `border-color:${colorOf(n.member)}`;
+        (status === "went" ? went : going).push({ date: r._first, li: flyRow(dot, esc(room.title), tag, target) });
+      });
+      // the people lines: un-marked, never a pod member; "knows" only names with their own line here
+      const known = n.network.filter(r => !r._draft && !members.includes(firstName(r.person)));
+      const lines = new Set(known.map(r => clean(r.person).toLowerCase()));
+      known.forEach(r => {
+        const knows = people(r.knows).filter(k => lines.has(k.toLowerCase()));
+        const parts = [r["met at"], r["follow-up"] ? "follow-up " + r["follow-up"] : "", knows.length ? "knows " + knows.join("; ") : ""].filter(Boolean);
+        peopleRows.push(flyRow(`background:${colorOf(n.member)}`, esc(clean(r.person)), n.member + MID + parts.join(MID), null));
+      });
+      countRows.push({ member: n.member, places: places.size, people: known.length,
+        rooms: n.rooms.filter(r => !r._draft && DATE_RE.test(r._first) && (r.status || "").toLowerCase() === "went").length });
+    });
+    went.sort((a, b) => b.date.localeCompare(a.date));
+    going.sort((a, b) => a.date.localeCompare(b.date));
+    going.forEach(g => g.li.querySelector(".dot").classList.add("hollow"));
+    fill("went-list", "n-went", went.map(w => w.li), "No room gone to yet.");
+    fill("going-list", "n-going", going.map(g => g.li), "None.");
+    fill("people-list", "n-people", peopleRows, "No person line un-marked yet.");
+
+    venues.filter(v => v.who && Number.isFinite(v.lat) && Number.isFinite(v.lon)).forEach(v => {
+      const who = String(v.who).toLowerCase();
+      const c = hasNode.has(who) ? colorOf(who) : "#8a8f98";   // grey until that member has a node
+      L.circleMarker([v.lat, v.lon], { pane: "went", radius: 6, color: c, weight: 3, fillColor: "#ffffff", fillOpacity: 0.9, dashArray: "2 3" })
+        .bindPopup(`<div class="pop"><h3>${esc(v.name)}</h3><p>waypoint${MID}${esc(v.who)}${v.from ? MID + esc(v.from) : ""}</p></div>`)
+        .bindTooltip(`${esc(v.name)}${MID}${esc(v.who)}`, { direction: "top", offset: [0, -6] })
+        .addTo(waypointsGroup);
+    });
+
+    const count = document.getElementById("count");
+    count.replaceChildren(...(countRows.length ? countRows.map(c => {
+      const d = document.createElement("div");
+      d.className = "count";
+      d.innerHTML = `<span class="who" style="color:${colorOf(c.member)}">${esc(c.member)}</span>` +
+        `<span class="n"><b>${c.places}</b>places</span><span class="n"><b>${c.people}</b>people</span><span class="n"><b>${c.rooms}</b>rooms went</span>`;
+      return d;
+    }) : [Object.assign(document.createElement("p"), { className: "empty", textContent: `No rooms.md or network.md under ${PEOPLE}/<member>/ yet.` })]));
+  }
+
+  // ---------- load ----------
+  const text = url => fetch(url, { cache: "no-store" }).then(r => r.ok ? r.text() : "").catch(() => "");
+  const node = m => Promise.all([text(`${PEOPLE}/${m}/rooms.md`), text(`${PEOPLE}/${m}/network.md`)])
+    .then(([rooms, network]) => (rooms || network) ? { member: m, rooms: tableRows(rooms), network: tableRows(network) } : null);
+
+  fetch(CITY.data, { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(fc => {
+      const feats = renderRooms(fc);
+      return Promise.all([
+        fetch(CITY.venues, { cache: "no-store" }).then(r => r.ok ? r.json() : { venues: [] }).catch(() => ({ venues: [] })),
+        Promise.all(members.map(node))
+      ]).then(([vj, nodes]) => renderMembers(feats,
+        (vj.venues || []).filter(v => Number.isFinite(v.lat) && Number.isFinite(v.lon)), nodes.filter(Boolean)))
+        .catch(e => {   // the members' files are theirs to get wrong; the feeds' rooms stay on the map
+          const p = document.createElement("p");
+          p.className = "err";
+          p.textContent = `The members' rows did not render (${e.message}). Check people/<member>/rooms.md and rooms/venues.json.`;
+          document.getElementById("count").replaceChildren(p);
+        });
+    })
+    .catch(e => {
+      document.getElementById("sub").textContent = "rooms did not load";
+      const li = document.createElement("li");
+      li.className = "err";
+      li.innerHTML = `Could not load <code>${esc(CITY.data)}</code> (${esc(e.message)}). ` +
+        `Opened as a file? Serve it: run <code>python3 -m http.server 8000 --bind 127.0.0.1</code> in the repository root, ` +
+        `then open <code>http://localhost:8000/map/</code>.`;
+      document.getElementById("room-list").replaceChildren(li);
+    });
+})();
+</script>
+</body>
+</html>

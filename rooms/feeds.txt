@@ -1,0 +1,24 @@
+# One public iCal (ICS) feed per line. The "# " comment line above a URL names its community.
+# Luma calendar feeds carry GEO; Meetup group feeds carry none (fetch.py places those from venues.json).
+# Add a feed: find the calendar's id (cal-...) or the Meetup group slug, add two lines, run fetch.py.
+
+# MLAI
+https://api.lu.ma/ics/get?entity=calendar&id=cal-gl037DQRq7lOnFs
+
+# ANZ Startup Events
+https://api.lu.ma/ics/get?entity=calendar&id=cal-BExqrda4iPuEqSg
+
+# Aussie Founders Club
+https://api.lu.ma/ics/get?entity=calendar&id=cal-8D5P742lhwQCBUZ
+
+# Physical AI Melbourne
+https://www.meetup.com/physical-ai-melbourne/events/ical/
+
+# Shipping with AI
+https://www.meetup.com/shipping-ai/events/ical/
+
+# ProductTank Melbourne
+https://www.meetup.com/producttank-melbourne/events/ical/
+
+# Melbourne AI Developers Group
+https://www.meetup.com/melbourne-ai-developers-group/events/ical/

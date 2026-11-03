@@ -1,0 +1,21 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//pod test fixture//EN
+BEGIN:VEVENT
+UID:fixture-1
+DTSTART;TZID=Australia/Melbourne:20261104T173000
+DTEND;TZID=Australia/Melbourne:20261104T200000
+SUMMARY:Couch Conversations (fixture)
+LOCATION:Cremorne Digital Hub\, 80 Balmain St\, Cremorne VIC
+ORGANIZER;CN=Placeholder Host:mailto:host@example.test
+DESCRIPTION:A fixture event whose description is folded over a
+  second line.
+END:VEVENT
+BEGIN:VEVENT
+UID:fixture-2
+DTSTART;TZID=Australia/Melbourne:20261105T173000
+SUMMARY:Pinned by GEO (fixture)
+LOCATION:Nowhere Hall\, Melbourne VIC
+GEO:-37.81;144.96
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,11 @@
+{
+  "_doc": "Places events that carry no GEO. fetch.py matches each 'match' string (case-insensitive) against LOCATION, then SUMMARY and DESCRIPTION. Coordinates are [lat, lon] here; GeoJSON output flips them to [lon, lat]. 'from' says where the point came from.",
+  "venues": [
+    {"name": "Stone & Chalk, 121 King St", "match": ["Stone & Chalk", "121 King St"], "lat": -37.817251, "lon": 144.955775, "from": "Luma GEO"},
+    {"name": "State Library Victoria, 328 Swanston St", "match": ["State Library Victoria", "328 Swanston"], "lat": -37.809809, "lon": 144.96519, "from": "Luma GEO"},
+    {"name": "Cremorne Digital Hub, 80 Balmain St", "match": ["Cremorne Digital Hub", "80 Balmain"], "lat": -37.8304, "lon": 144.9945, "from": "research 29 Oct, approximate"},
+    {"name": "Nintex, Level 14, 530 Collins St", "match": ["Nintex", "530 Collins"], "lat": -37.8179, "lon": 144.9577, "from": "street address, approximate"},
+    {"name": "Collins Square, 555 Collins St", "match": ["555 Collins"], "lat": -37.8191, "lon": 144.9549, "from": "street address, approximate"},
+    {"name": "La Trobe University, Bundoora", "match": ["La Trobe Business School", "Donald Whitehead", "Bundoora"], "lat": -37.7213, "lon": 145.0480, "from": "inferred from 'La Trobe Business School' hosting; campus unverified"}
+  ]
+}
