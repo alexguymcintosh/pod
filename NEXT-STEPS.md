@@ -20,3 +20,5 @@ Rewritten at every `harness-close`. Assume the next session knows nothing that i
 - Alex fills his four `?` lines in `people/alex/README.md`; nobody writes them for him.
 - Members add themselves: `people/<member>/` from `people/_template/` by pull request (the join prompt in `README.md`).
 - The social-media engine is the next build, after the demo.
+- Make `harness-gates / visitor-pr` a required status check on main (plan `docs/plans/PLAN-visitor-pr-check-2611041649.md`). Until then visitor PRs are merged one at a time by the four-line hand checklist: one file at `going/<slug>/<pr-author>.md`; the slug is on the board; no email, phone, link or symlink; nothing else changed. The last line stays binding after the check is required, since a PR can edit its own workflow (the plan's departure 2).
+- The page's going link writes `# <login> is going: <slug>`, a blank line, the board's row quoted as `community.py`'s QUOTED join, then the optional note: the shape `scripts/check_visitor_pr.py` rule 3 requires.
