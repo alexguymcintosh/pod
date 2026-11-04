@@ -117,6 +117,36 @@ def test_visitor_login_case_is_ignored(repo, capsys):
     assert run(repo, capsys, author="Ana", owner="Pod-Owner")[0] == 0
 
 
+@pytest.mark.parametrize("note", ["", "first time, keen"])
+@pytest.mark.parametrize("author", ["alex", "AlexGuy"])
+def test_page_going_file_for_every_row_of_the_real_board_passes(repo, tmp_path, capsys, author, note):
+    """The file the page writes, for every row of this repository's own newest board: the login lower-cased in
+    the filename and the heading, a blank line, the row quoted as community.py's QUOTED join, then the note or
+    nothing. It is byte for byte what community.py going writes, and it passes rules 1 to 3 for a mixed-case
+    author too."""
+    com = load("community", ROOT / ".agents" / "skills" / "community" / "community.py")
+    real = com.board_path(ROOT)
+    head(repo, {f"events/{real.name}": real.read_text(encoding="utf-8")})  # the owner's board change, merged
+    git(repo, "tag", "-f", "base")
+    me = author.lower()
+    scratch = tmp_path / "scratch"
+    (scratch / "events").mkdir(parents=True)
+    (scratch / "events" / real.name).write_text(real.read_text(encoding="utf-8"), encoding="utf-8")
+    files = {}
+    for row in com.board_rows(real):
+        s = row["slug"]
+        page = (f"# {me} is going: {s}\n\n> " + " | ".join(f"{k}: {row[k]}" for k in com.QUOTED if row.get(k))
+                + "\n" + (f"\n{note}\n" if note else ""))
+        com.going(scratch, me, s, note or None)
+        assert (scratch / "going" / s / f"{me}.md").read_text(encoding="utf-8") == page, s
+        files[f"going/{s}/{me}.md"] = page
+    assert len(files) >= 2
+    head(repo, files)
+    rc, out = run(repo, capsys, author=author)
+    assert rc == 0, out
+    assert out.startswith(f"PASS  check_visitor_pr: {me} (visitor)")
+
+
 def test_visitor_may_delete_own_going_file(repo, capsys):
     git(repo, "checkout", "-q", "-b", "had")
     head(repo, {f"going/{SLUG}/ana.md": going()})
