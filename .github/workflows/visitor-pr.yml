@@ -1,0 +1,32 @@
+# The visitor check (scripts/check_visitor_pr.py): a visitor's PR changes only going/<slug>/<login>.md and
+# people/<login>/, and every going/ and people/ file is a plain, small, named .md with no email or phone.
+# pull_request_target runs this file as the BASE branch has it, with the base checked out, so a PR cannot rewrite
+# the job or the checker it is judged by. The PR is fetched as git objects only: nothing of it is checked out,
+# installed or run. Read-only token, no secrets, no cache; the event's values reach the shell through env only.
+name: visitor-pr
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+jobs:
+  visitor-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch the PR as data
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+      - name: Visitor PR check
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.event.repository.owner.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 -I scripts/check_visitor_pr.py --base "$BASE_SHA" --head "$HEAD_SHA" --author "$AUTHOR" --owner "$OWNER" --fetched FETCH_HEAD

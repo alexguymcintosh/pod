@@ -20,3 +20,6 @@ Rewritten at every `harness-close`. Assume the next session knows nothing that i
 - Alex fills his four `?` lines in `people/alex/README.md`; nobody writes them for him.
 - Members add themselves: `people/<member>/` from `people/_template/` by pull request (the join prompt in `README.md`).
 - The social-media engine is the next build, after the demo.
+- Make the `visitor-pr` check (workflow and job `visitor-pr`, `.github/workflows/visitor-pr.yml`) a required status check on main, with code-owner review required for `/.github/` (plan `docs/plans/PLAN-visitor-pr-check-2611041649.md`). Until then visitor PRs are merged one at a time by the four-line hand checklist: one file at `going/<slug>/<pr-author>.md`; the slug is on the board; no email, phone, link or symlink; nothing else changed.
+- After merge, the live proof: a fork PR whose run shows the base's `visitor-pr` workflow FAIL (it cannot run before, since `pull_request_target` runs the base's workflow).
+- The page's going link writes `# <login> is going: <slug>`, a blank line, the board's row quoted as `community.py`'s QUOTED join, then the optional note: the shape `scripts/check_visitor_pr.py` rule 3 requires.

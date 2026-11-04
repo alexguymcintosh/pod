@@ -14,6 +14,7 @@ The club's public system: the rooms loop (find the rooms, say you are going, go,
 |---|---|---|
 | `README.md` | the front door: what this is, how to join, how a day works, the rules | the members |
 | `AGENTS.md`, `docs/`, `scripts/`, `.githooks/`, `.github/` | the harness: rules, records, lint, hooks, CI | `docs/HARNESS.md` |
+| `scripts/check_visitor_pr.py`, `scripts/tests/` | the CI check of a pull request's `going/` and `people/` files (`.github/workflows/visitor-pr.yml`, on `pull_request_target`, the PR read as data only) and its tests; CI runs `./test tests scripts/tests` | its docstring |
 | `people/<member>/` | a member's own folder: `README.md` (the four lines), `knows.md` (`# knows: <member>`, then one `- <member>` line per member they know), and the rooms skill's `rooms.md` and `network.md` | the member |
 | `people/_template/` | the newcomer's starting folder: a `README.md` of four `?` lines and a `knows.md` with its heading only | `community` |
 | `people/members.json` | the member list the scripts share; generated | `connections.py` |
@@ -57,3 +58,7 @@ The club's public system: the rooms loop (find the rooms, say you are going, go,
   <!-- verify: exists tests/fixtures/rooms.ics -->
 - **Public by choice, names only.** Everything here is public; a member publishes only what they choose; an outside person is `First name (role)` after a yes; a connection is two names; no email address appears under `people/`. Bought by: ADR-0003.
   <!-- verify: absent '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' in people -->
+- **A visitor's pull request touches only that visitor's files.** A PR whose author is not the repository owner changes only `going/<slug>/<login>.md` and `people/<login>/`; every added or changed file under `going/` or `people/`, from anyone, is one of the named `.md` files (`going/<slug>/<member>.md`; `README.md`, `knows.md`, `network.md`, `rooms.md` in a member's folder; plus `going/README.md` and the generated `people/members.json`), since Pages serves the tree as it is; a regular file of at most 2 KB, UTF-8, with no email address or phone number; and a going file has the shape `going/README.md` gives, for a slug on the board. Bought by: `.github/workflows/visitor-pr.yml` (the base's workflow and checker; the PR is fetched as data and never run), binding once `visitor-pr` is a required status check; until then the person who merges checks the same by hand.
+  <!-- verify: exists scripts/check_visitor_pr.py -->
+  <!-- verify: exists .github/workflows/visitor-pr.yml -->
+  <!-- verify: present 'check_visitor_pr\.py' in .github -->

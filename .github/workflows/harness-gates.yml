@@ -19,6 +19,6 @@ jobs:
         run: python scripts/harness_lint.py
       - name: Tests
         # Fill in bootstrap step 6. Must write a Cobertura XML at the path named in coverage_baseline.json.
-        run: pip install pytest pytest-cov && ./test
+        run: pip install pytest pytest-cov && ./test tests scripts/tests
       - name: Coverage ratchet
         run: python scripts/harness_lint.py --ratchet
