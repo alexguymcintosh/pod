@@ -1,6 +1,6 @@
 {
  "type": "FeatureCollection",
- "generated": "2026-10-29T14:30+11:00",
+ "generated": "2026-11-04T10:05+11:00",
  "window_days": 21,
  "features": [
   {
@@ -8,124 +8,16 @@
    "geometry": {
     "type": "Point",
     "coordinates": [
-     144.9617803,
-     -37.816594599999995
+     144.9945,
+     -37.8304
     ]
    },
    "properties": {
-    "title": "Founders Fright Night: Tales from the Start-Up Trenches",
-    "start": "2026-10-29T17:30+11:00",
-    "end": "2026-10-29T19:30+11:00",
-    "url": "https://luma.com/digital-v9sc",
+    "title": "NEXT [Lunch and Learn] How to Build a Marketing Strategy Before You Post",
+    "start": "2026-11-04T12:00+11:00",
+    "end": "2026-11-04T13:00+11:00",
+    "url": "https://luma.com/marketing-strategy-before-you-post",
     "community": "ANZ Startup Events",
-    "venue": "level 22 office 1/100 Queen St"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.955775,
-     -37.817251
-    ]
-   },
-   "properties": {
-    "title": "AI Engineer Night Melbourne #2",
-    "start": "2026-10-29T18:00+11:00",
-    "end": "2026-10-29T21:00+11:00",
-    "url": "https://luma.com/mlai-c122",
-    "community": "MLAI",
-    "venue": "Stone & Chalk Melbourne Startup Hub"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.95669379999998,
-     -37.8145585
-    ]
-   },
-   "properties": {
-    "title": "\ud83c\udff5 Melbourne Community Dinner",
-    "start": "2026-10-29T18:00+11:00",
-    "end": "2026-10-29T20:00+11:00",
-    "url": "https://luma.com/tdalzefi",
-    "community": "ANZ Startup Events",
-    "venue": "Kan Eang Thai Bistro"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.960354,
-     -37.831247499999996
-    ]
-   },
-   "properties": {
-    "title": "Pavilion Breakfast",
-    "start": "2026-10-30T07:30+11:00",
-    "end": "2026-10-30T09:00+11:00",
-    "url": "https://luma.com/gtmanz-m93b",
-    "community": "Aussie Founders Club",
-    "venue": "ST. ALi Coffee Roasters"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.95525300062954,
-     -37.81588296327148
-    ]
-   },
-   "properties": {
-    "title": "STRANGER BUILDS l $10k USD CASH PRIZES I Halloween Hackathon (MELBOURNE)",
-    "start": "2026-10-31T10:00+11:00",
-    "end": "2026-10-31T18:00+11:00",
-    "url": "https://luma.com/strangerbuilds-mel",
-    "community": "MLAI",
-    "venue": "address on the event page"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.955775,
-     -37.817251
-    ]
-   },
-   "properties": {
-    "title": "Unconference \u2014 Road to AI Engineer",
-    "start": "2026-10-31T10:00+11:00",
-    "end": "2026-10-31T16:00+11:00",
-    "url": "https://luma.com/mlai-zfol",
-    "community": "MLAI",
-    "venue": "Stone & Chalk Melbourne Startup Hub"
-   }
-  },
-  {
-   "type": "Feature",
-   "geometry": {
-    "type": "Point",
-    "coordinates": [
-     144.9695140163445,
-     -37.80616353844272
-    ]
-   },
-   "properties": {
-    "title": "Founders Walk + Coffee Club",
-    "start": "2026-10-31T10:00+11:00",
-    "end": "2026-10-31T12:00+11:00",
-    "url": "https://luma.com/nlmxksa6",
-    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "address on the event page"
    }
   },
@@ -144,6 +36,24 @@
     "end": "2026-11-04T20:00+11:00",
     "url": "https://luma.com/cremorne-7ljk",
     "community": "ANZ Startup Events",
+    "venue": "Cremorne Digital Hub"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     144.9944672,
+     -37.8304051
+    ]
+   },
+   "properties": {
+    "title": "Public Speaking Workshop: with Desmond John",
+    "start": "2026-11-05T15:00+11:00",
+    "end": "2026-11-05T17:30+11:00",
+    "url": "https://luma.com/drgik2sj",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Cremorne Digital Hub"
    }
   },
@@ -181,6 +91,24 @@
     "url": "https://luma.com/gtmanz-wplm",
     "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "6 Adolph St"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     144.9553807470237,
+     -37.81583759648215
+    ]
+   },
+   "properties": {
+    "title": "Learn to vibecode your first app (workshop)",
+    "start": "2026-11-05T18:00+11:00",
+    "end": "2026-11-05T20:00+11:00",
+    "url": "https://luma.com/jl952871",
+    "community": "MLAI",
+    "venue": "address on the event page"
    }
   },
   {
@@ -251,7 +179,7 @@
     "start": "2026-11-10T13:00+11:00",
     "end": "2026-11-10T18:00+11:00",
     "url": "https://luma.com/AI-Solo-Melb",
-    "community": "MLAI",
+    "community": "MLAI / Aussie Founders Club",
     "venue": "Stone & Chalk Melbourne Startup Hub"
    }
   },
@@ -287,7 +215,7 @@
     "start": "2026-11-11T11:00+11:00",
     "end": "2026-11-11T16:15+11:00",
     "url": "https://luma.com/otfvujfp",
-    "community": "ANZ Startup Events",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Tank Stream Labs"
    }
   },
@@ -305,7 +233,7 @@
     "start": "2026-11-11T15:30+11:00",
     "end": "2026-11-11T17:30+11:00",
     "url": "https://luma.com/cremorne-irwg",
-    "community": "ANZ Startup Events",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Cremorne Digital Hub"
    }
   },
@@ -323,8 +251,26 @@
     "start": "2026-11-11T17:30+11:00",
     "end": "2026-11-11T20:00+11:00",
     "url": "https://luma.com/cremorne-ak35",
-    "community": "ANZ Startup Events",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Cremorne Digital Hub"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     144.9723847,
+     -37.8127912
+    ]
+   },
+   "properties": {
+    "title": "Stripe Connect: Embed payments into your platform or marketplace",
+    "start": "2026-11-11T17:30+11:00",
+    "end": "2026-11-11T19:30+11:00",
+    "url": "https://www.stripecommunity.com/home/clubs/melbourne/events/stripe-connect-embed-payments-into-your-platform-or-marketplace-ee4ntl68cx?agenda_day",
+    "community": "Aussie Founders Club",
+    "venue": "address on the event page"
    }
   },
   {
@@ -409,7 +355,7 @@
     ]
    },
    "properties": {
-    "title": "Startup Networking\u26a1& Fireside Chat w/ Winnie Nguyen (Founder of Prism",
+    "title": "The Leap\ud83c\udfc3\u200d\u2640\ufe0f\u200d\u27a1\ufe0f from IBM Corporate Leader to Startup Founder, a Fireside Chat w/ Winnie Nguyen",
     "start": "2026-11-18T17:30+11:00",
     "end": "2026-11-18T20:00+11:00",
     "url": "https://luma.com/12682j0e",
@@ -431,7 +377,7 @@
     "start": "2026-11-19T09:00+11:00",
     "end": "2026-11-19T12:00+11:00",
     "url": "https://luma.com/65v7s9t9",
-    "community": "Aussie Founders Club",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Stone & Chalk Melbourne Startup Hub"
    }
   },
@@ -449,7 +395,25 @@
     "start": "2026-11-19T09:00+11:00",
     "end": "2026-11-19T17:00+11:00",
     "url": "https://luma.com/ynbam7yy",
-    "community": "Aussie Founders Club",
+    "community": "ANZ Startup Events / Aussie Founders Club",
+    "venue": "Stone & Chalk Melbourne Startup Hub"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     144.955775,
+     -37.817251
+    ]
+   },
+   "properties": {
+    "title": "AFC presents In Conversation: Three Founders, Honestly Speaking",
+    "start": "2026-11-19T17:30+11:00",
+    "end": "2026-11-19T20:30+11:00",
+    "url": "https://luma.com/kpuauyws",
+    "community": "ANZ Startup Events / Aussie Founders Club",
     "venue": "Stone & Chalk Melbourne Startup Hub"
    }
   }

@@ -114,17 +114,14 @@ A rule enters Part A only if it names (a) the value it adds, (b) how it is enfor
 
 ## Part B: This repository
 
-**Project:** the club's system (the public home of the rooms loop). **Stack:** markdown documents, agent skills, small Python 3 standard-library scripts, one static map page. **Tracker:** none; the plan is `README.md` and each member's `people/<name>/`. **Sibling repos:** the pod (private), where the rooms skill and the map were first built.
+**Project:** the club's system (the public home of the rooms loop). **Stack:** markdown documents, agent skills, small Python 3 standard-library scripts, one static map page. **Tracker:** none; the plan is `README.md` and each member's `people/<member>/`. **Sibling repos:** `pod-private` (the members' private repository), where the rooms skill and the map were first built.
 
 **Read `README.md` first.** It is the front door: what this is, how to join, how a day works. The one rule that matters: everything here is public, and a member publishes only what that member chooses.
-
-- Layout: `people/<name>/` is a member's own folder (any shape; a `README.md`, `rooms.md`, `network.md`); `events/` is the board the rooms skill writes; `going/` is who is going where; `days/<date>/` is the day's logs, one file per member who chooses to push one; `network/` is the names-only map; `map/` is the Leaflet page GitHub Pages serves; `.agents/skills/` holds `rooms` and `community`. Layout map: `docs/ARCHITECTURE.md`.
-- A member's own folder is theirs: an agent edits it only for that member. Everything outside a member's folder changes by pull request with two yeses from members.
-- Names only. A person who is not a member appears as `First name (role)`, and only after they said yes. No phone numbers, no emails, nothing said in confidence, no recordings. The consent line in `days/<date>/README.md` is read out before anything is recorded.
-- A line starting with `?` is a draft its owner has not approved; never treat it as settled.
-- Private material (debriefs, cards, audio, transcripts) stays in `data/` on the member's machine, which git ignores. Session logs record shared work only.
-- Write `.md` in your folder. The push gate checks other file types outside `.agents/` and `docs/` for `Surface:`, `Tests:` and `Review:` plus a session log.
-- Test: `./test` (pytest over `tests/`, with coverage). The feeds are fetched by `python3 .agents/skills/rooms/fetch.py`; tests never touch the network.
 <!-- verify: exists README.md -->
+
+- The rules are `README.md` ## Rules; every agent here follows them. Session logs record shared work only.
+- Layout: `people/<member>/` is a member's own folder (any shape; `README.md`, `rooms.md`, `network.md`, `knows.md`); `events/` is the board `board.py` (the `community` skill) writes; `going/` is who is going where; `days/<date>/` is the day's logs, one file per member who chooses to push one; `network/` is the names-only map; `map/` is the Leaflet page GitHub Pages serves; `.agents/skills/` holds `rooms` and `community`. Layout map: `docs/ARCHITECTURE.md`.
 <!-- verify: exists .agents/skills/rooms/SKILL.md -->
 <!-- verify: exists map/index.html -->
+- Write `.md` in your folder. The push gate checks other file types outside `.agents/` and `docs/` for `Surface:`, `Tests:` and `Review:` plus a session log.
+- Test: `./test` (pytest over `tests/`, with coverage). The feeds are fetched by `python3 .agents/skills/rooms/fetch.py`; tests never touch the network.

@@ -1,1 +1,1 @@
-Tests for pod. Pytest collects this folder and `.agents/skills/transcript-analyser/scripts` (pyproject.toml).
+Tests for the club's scripts; pytest collects this folder (pyproject.toml).

@@ -8,3 +8,4 @@ Every file has exactly one row here and ids are sequential (`adr-register`). `AG
 |---|---|---|---|
 | 0001 | Adopt the agentic development harness | Accepted | 2026-10-21 |
 | 0002 | Raw session transcripts stay on the session host | Accepted | 2026-10-21 |
+| 0003 | Public by choice, names only | Proposed | 2026-11-04 |

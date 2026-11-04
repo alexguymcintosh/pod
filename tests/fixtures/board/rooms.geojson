@@ -1,0 +1,88 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "Robots Night (fixture)",
+        "start": "2026-11-05T17:30+11:00",
+        "end": "2026-11-05T20:00+11:00",
+        "url": "https://example.test/robots",
+        "community": "Robots Club (fixture)",
+        "venue": "6 Adolph St"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "After the window (fixture)",
+        "start": "2026-11-11T09:00+11:00",
+        "end": "2026-11-11T10:00+11:00",
+        "url": "https://example.test/after",
+        "community": "ANZ Startup Events (fixture)",
+        "venue": "Cremorne Digital Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "Bad start (fixture)",
+        "start": "soon",
+        "url": "https://example.test/bad",
+        "community": "ANZ Startup Events (fixture)",
+        "venue": "Cremorne Digital Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.96, -37.81]},
+      "properties": {
+        "title": "Melbourne | Founder Co-working Day (fixture)",
+        "start": "2026-11-05T09:00+11:00",
+        "end": "2026-11-05T17:00+11:00",
+        "url": "https://example.test/cowork",
+        "community": "ANZ Startup Events (fixture)",
+        "location": "State Library (fixture)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "Couch Conversations: The Community View (fixture)",
+        "start": "2026-11-04T17:30+11:00",
+        "end": "2026-11-04T20:00+11:00",
+        "url": "https://example.test/couch",
+        "community": "ANZ Startup Events (fixture)",
+        "venue": "Cremorne Digital Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "Before the window (fixture)",
+        "start": "2026-11-03T18:00+11:00",
+        "end": "2026-11-03T20:00+11:00",
+        "url": "https://example.test/before",
+        "community": "ANZ Startup Events (fixture)",
+        "venue": "Cremorne Digital Hub"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [144.99, -37.83]},
+      "properties": {
+        "title": "The Very Long Title Of A Room Whose Slug Must Be Cut At Sixty Characters Exactly (fixture)",
+        "start": "2026-11-10T09:00+11:00",
+        "end": "2026-11-10T10:00+11:00",
+        "url": "https://example.test/long",
+        "community": "ANZ Startup Events (fixture)",
+        "venue": "Cremorne Digital Hub"
+      }
+    }
+  ]
+}
