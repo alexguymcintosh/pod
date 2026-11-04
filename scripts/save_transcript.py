@@ -6,7 +6,10 @@ in its own home folder; this copies the ones that belong to this project into
 docs/sessions/raw/<host>/<YYMMDDhhmm>-<basename>.
 
 Hosts and where they write:
-  claude       ~/.claude/projects/<slug>/*.jsonl          slug = cwd with every non-alphanumeric char -> '-'
+  claude       ~/.claude/projects/<slug>/*.jsonl          slug = cwd with every non-alphanumeric char -> '-';
+               ~/.claude/projects/*/*.jsonl               plus any other project folder, filtered by mention of
+                                                          this repo's path (a session launched from a parent
+                                                          folder or working in a worktree)
   codex        ~/.codex/sessions/**/rollout-*.jsonl        filtered by mention of this repo's path
   gemini       ~/.gemini/tmp/*/chats/*                     filtered by mention of this repo's path
   antigravity  ~/.gemini/antigravity-cli/brain/**, ~/.gemini/antigravity/conversations/**,
@@ -33,7 +36,7 @@ import time
 from pathlib import Path
 
 HOSTS: dict[str, list[str]] = {
-    "claude": [".claude/projects/<slug>/*.jsonl"],
+    "claude": [".claude/projects/<slug>/*.jsonl", ".claude/projects/*/*.jsonl"],
     "codex": [".codex/sessions/**/rollout-*.jsonl"],
     "gemini": [".gemini/tmp/*/chats/*"],
     "antigravity": [".gemini/antigravity-cli/brain/**/*", ".gemini/antigravity/conversations/**/*",
@@ -60,25 +63,46 @@ def slugs(root: Path) -> set[str]:
 
 
 def mentions_repo(p: Path, root: Path) -> bool:
+    """True when the file names this repository's path anywhere: a long session may mention it only near the end,
+    so the file is scanned in 1 MB chunks with an overlap of the longest needle, never held whole in memory."""
     needles = {str(root), root.as_posix(), str(root).replace("\\", "\\\\")}
+    keep = max(len(n) for n in needles) - 1
+    tail = ""
     try:
         with p.open("r", encoding="utf-8", errors="ignore") as fh:
-            head = fh.read(2_000_000)
+            while True:
+                chunk = fh.read(1_000_000)
+                if not chunk:
+                    return False
+                window = tail + chunk
+                if any(n in window for n in needles):
+                    return True
+                tail = window[-keep:] if keep > 0 else ""
     except OSError:
         return False
-    return any(n in head for n in needles)
 
 
 def candidates(home: Path, root: Path) -> list[tuple[str, Path, bool]]:
-    """(host, path, needs_content_filter) for every file a host pattern matches."""
-    out = []
+    """(host, path, needs_content_filter) for every file a host pattern matches, each path once: the first pattern
+    that matches it wins, so a file under this project's own slug is never put through the content filter."""
+    out: list[tuple[str, Path, bool]] = []
+    seen: set[Path] = set()
+
+    def add(host: str, p: Path, needs_filter: bool) -> None:
+        rp = p.resolve()
+        if p.is_file() and rp not in seen:
+            seen.add(rp)
+            out.append((host, p, needs_filter))
+
     for host, patterns in HOSTS.items():
         for pat in patterns:
             if "<slug>" in pat:
                 for sl in slugs(root):
-                    out += [(host, p, False) for p in home.glob(pat.replace("<slug>", sl)) if p.is_file()]
+                    for p in home.glob(pat.replace("<slug>", sl)):
+                        add(host, p, False)
             else:
-                out += [(host, p, True) for p in home.glob(pat) if p.is_file()]
+                for p in home.glob(pat):
+                    add(host, p, True)
     return out
 
 
@@ -130,6 +154,10 @@ def selftest() -> int:
         (home / ".claude/projects" / sl / "abc.jsonl").write_text('{"type":"user"}\n', encoding="utf-8")
         (home / ".claude/projects/other-project").mkdir(parents=True)
         (home / ".claude/projects/other-project/zzz.jsonl").write_text("{}\n", encoding="utf-8")
+        (home / ".claude/projects/parent-folder").mkdir(parents=True)
+        (home / ".claude/projects/parent-folder/wt-session.jsonl").write_text(f'{{"cwd":"{root.as_posix()}"}}\n', encoding="utf-8")
+        (home / ".claude/projects/parent-folder/long-session.jsonl").write_text(
+            '{"type":"filler"}\n' * 150_000 + f'{{"cwd":"{root.as_posix()}"}}\n', encoding="utf-8")   # the mention sits past 2 MB
         (home / ".codex/sessions/2026/10/03").mkdir(parents=True)
         (home / ".codex/sessions/2026/10/03/rollout-mine.jsonl").write_text(f'{{"cwd":"{root.as_posix()}"}}\n', encoding="utf-8")
         (home / ".codex/sessions/2026/10/03/rollout-theirs.jsonl").write_text('{"cwd":"/elsewhere"}\n', encoding="utf-8")
@@ -139,6 +167,10 @@ def selftest() -> int:
         names = " ".join(copied)
         case("claude transcript in this project's slug folder copied", "abc.jsonl" in names)
         case("claude transcript of another project not copied", "zzz.jsonl" not in names)
+        case("claude transcript under another slug that mentions the repo copied (a worktree session)", "wt-session.jsonl" in names)
+        case("claude transcript under another slug that does not mention the repo skipped", any("zzz.jsonl" in s and "does not mention" in s for s in skipped))
+        case("the exact-slug transcript is listed once", sum(1 for _, p, _ in candidates(home, root) if p.name == "abc.jsonl") == 1)
+        case("a long transcript that mentions the repo only past 2 MB copied", "long-session.jsonl" in names)
         case("codex rollout mentioning the repo copied", "rollout-mine.jsonl" in names)
         case("codex rollout of another repo skipped", any("rollout-theirs" in s for s in skipped))
         case("antigravity brain file mentioning the repo copied", "conv.md" in names)
