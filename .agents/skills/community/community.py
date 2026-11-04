@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +28,8 @@ SAFE_RE = re.compile(r"(?<![\d-])\d{4}-\d{2}-\d{2}(?![\d-])|(?<![\d:])\d{1,2}:\d
 PHONE_RE = re.compile(r"(?:\d[\s().+-]*){8,}")  # eight or more digits; whitespace, dots, brackets, +, - between
 LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # a markdown link, kept as its text
 QUOTED = ("when", "room", "where", "link")
+READ_CAP = 2048  # bytes read from one going file
+NOTE_CAP = 120  # characters of one note printed
 HEADINGS = ("## what I learned", "## who I met (first name and role only)", "## follow-ups")
 
 
@@ -132,6 +136,9 @@ def going(root: Path, me: str, event: str, note: str | None = None) -> str:
         if hits:
             s = hits[0]
     folder = root / "going" / s
+    if not (plain_dir(root / "going") or not os.path.lexists(root / "going")) or (
+            os.path.lexists(folder) and not plain_dir(folder)):
+        raise Refuse(f"going/{s} is not a plain folder (a link or a file): not written")
     if folder.is_dir() and me in {p.stem.lower() for p in folder.glob("*.md")}:
         return f"{me} is already going to {s}"
     parts = [f"# {me} is going: {s}"]
@@ -147,10 +154,35 @@ def going(root: Path, me: str, event: str, note: str | None = None) -> str:
     return f"going/{s}/{me}.md: {note}" if note else f"going/{s}/{me}.md"
 
 
+def plain_dir(p: Path) -> bool:
+    """True for a real folder, never a link to one."""
+    try:
+        return stat.S_ISDIR(os.lstat(p).st_mode)
+    except OSError:
+        return False
+
+
+def plain_file(p: Path) -> bool:
+    """True for a regular file, never a link, a folder, a FIFO or a device."""
+    try:
+        return stat.S_ISREG(os.lstat(p).st_mode)
+    except OSError:
+        return False
+
+
+def read_capped(path: Path) -> str:
+    """The first READ_CAP bytes of a regular file, opened without following a link."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(fd, "rb") as f:
+        return f.read(READ_CAP).decode("utf-8", errors="replace")
+
+
 def going_note(path: Path) -> str:
-    """The note in one going/<slug>/<member>.md: its lines that are not the heading or the quoted row."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return " ".join(ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith(("#", ">")))
+    """The note in one going/<slug>/<member>.md as one safe line: its lines that are not the heading or the
+    quoted row, minus any line private() rejects, cut at NOTE_CAP characters. The file stays as written."""
+    lines = read_capped(path).splitlines()
+    keep = (ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith(("#", ">")))
+    return " ".join(ln for ln in keep if not private(ln))[:NOTE_CAP].rstrip()
 
 
 def whos_going(root: Path, event: str | None = None) -> str:
@@ -159,21 +191,24 @@ def whos_going(root: Path, event: str | None = None) -> str:
     An old per-room going/<slug>.md is named with where its lines go, never read as members.
     """
     folder = root / "going"
-    if event:
+    if not plain_dir(folder):
+        rooms = []
+    elif event:
         s = slug(event)
         old = folder / f"{s}.md"
-        rooms = [old if old.is_file() and not (folder / s).is_dir() else folder / s]
+        rooms = [old if plain_file(old) and not plain_dir(folder / s) else folder / s]
     else:
-        rooms = sorted((p for p in folder.glob("*") if (p.is_dir() or p.suffix == ".md") and p.stem.lower() != "readme"),
-                       key=lambda p: p.stem)
+        rooms = sorted((p for p in folder.iterdir() if (plain_dir(p) or (plain_file(p) and p.suffix == ".md"))
+                        and p.stem.lower() != "readme"), key=lambda p: p.stem)
     if not rooms:
         return "nobody is going anywhere yet"
     out = []
     for room in rooms:
-        if room.is_file():
+        if plain_file(room):
             out.append(f"{room.stem}: old file going/{room.name}, move each line to going/{room.stem}/<member>.md")
             continue
-        files = sorted((p for p in room.glob("*.md") if p.stem.lower() != "readme"), key=lambda p: p.stem.lower())
+        files = sorted((p for p in room.glob("*.md") if plain_file(p) and p.stem.lower() != "readme"),
+                       key=lambda p: p.stem.lower()) if plain_dir(room) else []
         names = [f"{p.stem} ({n})" if (n := going_note(p)) else p.stem for p in files]
         out.append(f"{room.name}: {', '.join(names) or 'nobody yet'}")
     return "\n".join(out)

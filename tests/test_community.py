@@ -232,6 +232,52 @@ def test_whos_going_reads_a_file_the_app_wrote_by_hand(repo):
     assert com.whos_going(repo) == "couch-conversations: cal (first time say hi)"
 
 
+def test_whos_going_skips_a_symlink_and_a_non_file_and_never_reads_them(repo):
+    (repo / "secret.txt").write_text("TOP-SECRET-KEY\n", encoding="utf-8")
+    (repo / "outside").mkdir()
+    (repo / "outside" / "ana.md").write_text("# ana is going: y\n\nOUTSIDE-SECRET\n", encoding="utf-8")
+    com.going(repo, "ana", "couch-conversations", "demo")
+    folder = repo / "going" / "couch-conversations"
+    (folder / "evil.md").symlink_to(repo / "secret.txt")
+    (folder / "dir.md").mkdir()
+    (repo / "going" / "linked-room").symlink_to(repo / "outside", target_is_directory=True)
+    assert com.whos_going(repo) == "couch-conversations: ana (demo)"
+    assert com.whos_going(repo, "couch-conversations") == "couch-conversations: ana (demo)"
+    assert com.whos_going(repo, "linked-room") == "linked-room: nobody yet"
+
+
+def test_going_refuses_a_symlinked_room_folder_and_writes_nothing_through_it(repo):
+    (repo / "outside").mkdir()
+    (repo / "going").mkdir()
+    (repo / "going" / "couch-conversations").symlink_to(repo / "outside", target_is_directory=True)
+    with pytest.raises(com.Refuse, match="not a plain folder"):
+        com.going(repo, "ana", "couch-conversations")
+    assert list((repo / "outside").iterdir()) == []
+
+
+def test_whos_going_reads_a_going_file_only_up_to_2_kb(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    (folder / "cal.md").write_text("# cal is going: couch-conversations\n" + "\n" * 10_000 + "AFTER-2KB\n", encoding="utf-8")
+    assert com.whos_going(repo) == "couch-conversations: cal"
+    big = folder / "big.md"
+    big.write_text("x" * 10_240, encoding="utf-8")
+    assert len(com.read_capped(big)) == 2048
+
+
+def test_whos_going_drops_a_note_line_with_contact_details_and_caps_the_note(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    text = "# bob is going: couch-conversations\n\ncall me 0412 345 678\nmail bob@example.test\nfirst time\n"
+    (folder / "bob.md").write_text(text, encoding="utf-8")
+    (folder / "cal.md").write_text("# cal is going: couch-conversations\n\n" + "x" * 300 + "\n", encoding="utf-8")
+    out = com.whos_going(repo)
+    assert out.startswith("couch-conversations: bob (first time), cal (")
+    assert "0412" not in out and "@" not in out
+    assert len(com.going_note(folder / "cal.md")) == 120
+    assert (folder / "bob.md").read_text(encoding="utf-8") == text, "the file stays as written"
+
+
 def test_whos_going_names_an_old_per_room_file_loudly(repo):
     (repo / "going").mkdir()
     (repo / "going" / "clay-club.md").write_text("# going: clay-club\n- ana: demo\n", encoding="utf-8")
