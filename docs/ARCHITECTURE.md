@@ -21,7 +21,7 @@ The club's public system: the rooms loop (find the rooms, say you are going, go,
 | `.agents/skills/community/` | what's on, who's going, I'm going, log my day, my network, join; `community.py` (the commands), `board.py` (the board), `connections.py` (the network map) | its `SKILL.md` |
 | `rooms/` | the feed list, the venue pins, the generated geojson | `rooms` |
 | `events/` | the board: one `<YYYY>-W<WW>.md` per ISO week, a table with the columns when, room, where, link, community, slug | `community` (`board.py`) |
-| `going/` | one `<slug>.md` per room: the board's row quoted, then one `- <member>: <note>` line per member who is going | `community` |
+| `going/` | one `<slug>/` folder per room and one `<member>.md` per member going: `# <member> is going: <slug>`, the board's row quoted, then the note (one file each, so the club app's prefilled new-file link can write it) | `community` |
 | `days/<date>/` | the consent line in `README.md` (required before `community.py day` writes); one `<member>.md` per member who chooses to push a day log, under three headings | `community` |
 | `network/` | `MAP.md`: who knows whom across the club, a mermaid graph and a table, names only | `community` (`connections.py`) |
 | `map/` | the Leaflet page: the rooms, every member's pins, the count | `rooms` |
@@ -43,8 +43,8 @@ The club's public system: the rooms loop (find the rooms, say you are going, go,
 - **Joining:** clone or fork → `people/<you>/` from `people/_template/` (the four questions, answered by the member, never rewritten) → `git config community.member <you>` → pull request; the own folder needs no review.
 - **A week:** `fetch.py` → `board.py` → `events/<week>.md` → a member says they are going → the room → the day log → `connections.py` → `network/MAP.md`.
 - **`whats-on`:** `python3 .agents/skills/community/community.py whats-on` reads this week's `events/<YYYY>-W<WW>.md` back; `python3 .agents/skills/rooms/fetch.py` then `python3 .agents/skills/community/board.py` write it first.
-- **`going <event>`:** `python3 .agents/skills/community/community.py going <event> --note "<why>"` creates `going/<slug>.md` with the board's row quoted and adds `- <me>: <note>` once; the pull request is the notification.
-- **`whos-going [<event>]`:** `python3 .agents/skills/community/community.py whos-going` prints `<slug>: name, name` for every file in `going/`, or the one asked for.
+- **`going <event>`:** `python3 .agents/skills/community/community.py going <event> --note "<why>"` writes `going/<slug>/<me>.md` (the board's row quoted, then the note) once and never another member's file; the pull request is the notification.
+- **`whos-going [<event>]`:** `python3 .agents/skills/community/community.py whos-going` prints `<slug>: name (note), name` for every folder in `going/`, members sorted, or the one asked for; an old `going/<slug>.md` is named, not read.
 - **`day`:** the agent writes the dictated log under the three headings; `python3 .agents/skills/community/community.py day --date <date> --from <file>` (or stdin) refuses an email, a phone number or a missing `days/<date>/README.md` and writes `days/<date>/<member>.md`; pushed only on the member's yes.
 - **`knows <member>`:** `python3 .agents/skills/community/community.py knows <member>` appends `- <member>` to `people/<me>/knows.md`; `python3 .agents/skills/community/connections.py` then rewrites `people/members.json` and `network/MAP.md`, linking two members when either lists the other in `knows.md` or both have the same un-marked `First name (role)` in `network.md`.
 - **`network`:** `python3 .agents/skills/community/community.py network` prints `people/<me>/knows.md`, then every line of `network/MAP.md` that mentions the member.

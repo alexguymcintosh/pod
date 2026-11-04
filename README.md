@@ -31,7 +31,7 @@ Read this repository's README.md and AGENTS.md. Ask me the four questions in peo
 Say the words to your own agent; the command is what it runs (the `community` skill, `.agents/skills/community/SKILL.md`).
 
 1. **what's on**: `python3 .agents/skills/community/community.py whats-on` prints this week's board from `events/`.
-2. **I'm going `<room>`**: `python3 .agents/skills/community/community.py going <room> --note "<why>"` adds your line to `going/<slug>.md`; **who's going** (`python3 .agents/skills/community/community.py whos-going`) reads it back.
+2. **I'm going `<room>`**: `python3 .agents/skills/community/community.py going <room> --note "<why>"` writes your own file, `going/<slug>/<you>.md`; **who's going** (`python3 .agents/skills/community/community.py whos-going`) reads it back.
 3. **the room**: no command. One name, one sentence, one ask; phone away; the consent line in `days/<date>/README.md` before you record anyone.
 4. **log my day**: your agent writes what you dictate under three headings (what I learned; who I met, first name and role only; follow-ups) and runs `python3 .agents/skills/community/community.py day --from <file>`, which refuses an email or a phone number and writes `days/<date>/<you>.md`. Your agent shows you the file and pushes only on your yes.
 5. **my network**: `python3 .agents/skills/community/community.py network` shows who you know and where the map links you; `python3 .agents/skills/community/community.py knows <member>` adds a member; `python3 .agents/skills/community/connections.py` redraws `network/MAP.md`, linking two members when one lists the other or both met the same person.

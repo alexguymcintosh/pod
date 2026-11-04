@@ -7,6 +7,7 @@ Rewritten at every `harness-close`. Assume the next session knows nothing that i
 - The loop exists: the `community` skill (`going`, `whos-going`, `whats-on`, `day`, `knows`, `network` in `community.py`), `board.py` (the week's board) and `connections.py` (the names-only network map), with their tests under `tests/`.
 - The repository is public at github.com/alexguymcintosh/pod and GitHub Pages serves `map/` at https://alexguymcintosh.github.io/pod/map/.
 - `days/2026-11-05/` holds the consent line only.
+- `going/` is one file per member per room, `going/<slug>/<member>.md`, so the club app's prefilled new-file link can say "I'm going" (branch `app-going-format`, plan `docs/plans/PLAN-app-going-format-2611041506.md`).
 
 ## Step 0: re-verify before acting on anything above
 
