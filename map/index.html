@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  The pod's map: the rooms in the feeds, the rooms each member went to, each member's waypoints, and the
+  The club's map: the rooms in the feeds, the rooms each member went to, each member's waypoints, and the
   people each member knows (the wiki view). One page, no build step; it reads the repository's own files.
   Ported from the 28 Oct London map (Leaflet 1.9.4, keyless Esri tiles).
 
@@ -146,14 +146,15 @@
   const CITY = { name: "Melbourne", tz: "Australia/Melbourne", center: [-37.8136, 144.9631], zoom: 13,
                  data: "../rooms/melbourne.geojson", venues: "../rooms/venues.json" };
   const SOON = "#f97316", LATER = "#2563eb";
-  // The members, copied by hand from POD.md's "Who we are" table; one colour each. A member with no
-  // folder under people/ yet is skipped. ?members=ana,ben&people=../tests/fixtures/people overrides both.
+  // The members come from people/members.json (written by the community skill's connections.py); one colour
+  // each. A member with no folder under people/ yet is skipped. ?members=ana,ben&people=../tests/fixtures/people
+  // overrides both. MEMBERS is only the fallback when the json is missing.
   const MEMBERS = ["alex"];
   const PALETTE = ["#0ea5e9", "#22c55e", "#a855f7", "#eab308", "#ec4899", "#14b8a6"];
   const qs = new URLSearchParams(location.search);
   const PEOPLE = /^[\w.][\w./-]*$/.test(qs.get("people") || "") ? qs.get("people") : "../people";   // never a /host path
-  const members = [...new Set((qs.get("members") || MEMBERS.join(",")).split(",").map(s => s.trim().toLowerCase())
-    .filter(s => /^[a-z0-9_-]+$/.test(s)))];
+  const validMembers = list => [...new Set(list.map(s => String(s).trim().toLowerCase()).filter(s => /^[a-z0-9_-]+$/.test(s)))];
+  let members = validMembers((qs.get("members") || MEMBERS.join(",")).split(","));
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const colorOf = m => PALETTE[members.indexOf(m) % PALETTE.length];
 
@@ -382,7 +383,7 @@
         const dot = status === "went" ? `background:${colorOf(n.member)}` : `border-color:${colorOf(n.member)}`;
         (status === "went" ? went : going).push({ date: r._first, li: flyRow(dot, esc(room.title), tag, target) });
       });
-      // the people lines: un-marked, never a pod member; "knows" only names with their own line here
+      // the people lines: un-marked, never a member; "knows" only names with their own line here
       const known = n.network.filter(r => !r._draft && !members.includes(firstName(r.person)));
       const lines = new Set(known.map(r => clean(r.person).toLowerCase()));
       known.forEach(r => {
@@ -424,7 +425,10 @@
   const node = m => Promise.all([text(`${PEOPLE}/${m}/rooms.md`), text(`${PEOPLE}/${m}/network.md`)])
     .then(([rooms, network]) => (rooms || network) ? { member: m, rooms: tableRows(rooms), network: tableRows(network) } : null);
 
-  fetch(CITY.data, { cache: "no-store" })
+  const memberList = qs.get("members") ? Promise.resolve(members)
+    : fetch(`${PEOPLE}/members.json`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null)
+        .then(list => Array.isArray(list) && list.length ? validMembers(list) : members);
+  memberList.then(list => { members = list; return fetch(CITY.data, { cache: "no-store" }); })
     .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
     .then(fc => {
       const feats = renderRooms(fc);

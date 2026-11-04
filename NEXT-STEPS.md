@@ -4,8 +4,9 @@ Rewritten at every `harness-close`. Assume the next session knows nothing that i
 
 ## What is true now (measured 2026-11-04)
 
-- The kit is in from the pod's main (84209b9) with the `rooms` skill, its data and the map. Lint 0 errors; `./test` 19 passed.
-- Nothing of the club's own system exists yet: no front door, no `community` skill, no board, no network map.
+- The loop exists: the `community` skill (`going`, `whos-going`, `whats-on`, `day`, `knows`, `network` in `community.py`), `board.py` (the week's board) and `connections.py` (the names-only network map), with their tests under `tests/`.
+- The repository is public at github.com/alexguymcintosh/pod and GitHub Pages serves `map/` at https://alexguymcintosh.github.io/pod/map/.
+- `days/2026-11-05/` holds the consent line only.
 
 ## Step 0: re-verify before acting on anything above
 
@@ -15,4 +16,6 @@ Rewritten at every `harness-close`. Assume the next session knows nothing that i
 
 ## Open threads
 
-- Build the smallest complete loop (plan in `docs/plans/`).
+- Alex fills his four `?` lines in `people/alex/README.md`; nobody writes them for him.
+- Members add themselves: `people/<member>/` from `people/_template/` by pull request (the join prompt in `README.md`).
+- The social-media engine is the next build, after the demo.
