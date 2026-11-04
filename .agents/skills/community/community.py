@@ -4,7 +4,7 @@
 Run: python3 .agents/skills/community/community.py <command> [args] [--as <name>]
 Commands: whats-on, whos-going [<event>], going <event> [--note ...], day [--date] [--from] [--force],
 network, knows <name>. The member is --as <name> or `git config community.member`; a member has a
-folder people/<name>/. The script writes only inside people/<me>/, going/ and days/<date>/<me>.md:
+folder people/<name>/. The script writes only inside people/<me>/, going/<slug>/<me>.md and days/<date>/<me>.md:
 never another member's folder, never a README.md. Exit 0 when done, 2 when refused (the reason is
 printed to stderr). Python 3.11+, standard library only.
 """
@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +28,8 @@ SAFE_RE = re.compile(r"(?<![\d-])\d{4}-\d{2}-\d{2}(?![\d-])|(?<![\d:])\d{1,2}:\d
 PHONE_RE = re.compile(r"(?:\d[\s().+-]*){8,}")  # eight or more digits; whitespace, dots, brackets, +, - between
 LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # a markdown link, kept as its text
 QUOTED = ("when", "room", "where", "link")
+READ_CAP = 2048  # bytes read from one going file
+NOTE_CAP = 120  # characters of one note printed
 HEADINGS = ("## what I learned", "## who I met (first name and role only)", "## follow-ups")
 
 
@@ -104,7 +108,7 @@ def board_slugs(path: Path | None) -> list[str]:
 
 
 def names_in(path: Path) -> list[str]:
-    """The names on a going/<slug>.md or knows.md file, as written: each '- ' line before ':', link and bold off."""
+    """The names on a knows.md file, as written: each '- ' line before ':', link and bold off."""
     if not path.is_file():
         return []
     return [LINK_RE.sub(r"\1", ln[2:]).split(":", 1)[0].strip("* \t")
@@ -112,9 +116,11 @@ def names_in(path: Path) -> list[str]:
 
 
 def going(root: Path, me: str, event: str, note: str | None = None) -> str:
-    """Add me to going/<slug>.md, creating it with the board's row quoted; a member already on it stays once.
+    """Write going/<slug>/<me>.md: '# <me> is going: <slug>', the board's row quoted, then the note.
 
-    A slug that is neither a file nor a board row resolves to the one board slug that contains it.
+    One file per member per room, so the club app's prefilled new-file link can say it too. A file of mine
+    already there (any case) stays as it is; another member's file is never opened. A slug that is neither a
+    folder in going/ nor a board row resolves to the one board slug that contains it.
     """
     s = slug(event)
     if not s or s == "readme":
@@ -122,41 +128,90 @@ def going(root: Path, me: str, event: str, note: str | None = None) -> str:
     note = " ".join(note.split()) if note else ""
     if private(note):
         raise Refuse(f"that looks like an email address or a phone number, not written: {note}")
-    path = root / "going" / f"{s}.md"
     board = board_path(root)
-    if not path.exists() and board_row(board, s) is None:
+    if not (root / "going" / s).is_dir() and board_row(board, s) is None:
         hits = [b for b in board_slugs(board) if s in b]
         if len(hits) > 1:
             raise Refuse(f"{s!r} is on the board more than once: {', '.join(hits)}")
         if hits:
             s = hits[0]
-            path = root / "going" / f"{s}.md"
-    if not path.exists():
-        lines = [f"# going: {s}"]
-        row = board_row(board, s) or {}
-        quoted = " | ".join(f"{k}: {row[k]}" for k in QUOTED if row.get(k))
-        if quoted:
-            lines.append("> " + quoted)
-        path.parent.mkdir(exist_ok=True)
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    if me in {n.lower() for n in names_in(path)}:
+    folder = root / "going" / s
+    if not (plain_dir(root / "going") or not os.path.lexists(root / "going")) or (
+            os.path.lexists(folder) and not plain_dir(folder)):
+        raise Refuse(f"going/{s} is not a plain folder (a link or a file): not written")
+    if folder.is_dir() and me in {p.stem.lower() for p in folder.glob("*.md")}:
         return f"{me} is already going to {s}"
-    line = f"- {me}: {note}" if note else f"- {me}"
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
-    return f"going/{s}.md: {line}"
+    parts = [f"# {me} is going: {s}"]
+    row = board_row(board, s) or {}
+    quoted = " | ".join(f"{k}: {row[k]}" for k in QUOTED if row.get(k))
+    if quoted:
+        parts.append("> " + quoted)
+    if note:
+        parts.append(note)
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / f"{me}.md").open("x", encoding="utf-8") as f:
+        f.write("\n\n".join(parts) + "\n")
+    return f"going/{s}/{me}.md: {note}" if note else f"going/{s}/{me}.md"
+
+
+def plain_dir(p: Path) -> bool:
+    """True for a real folder, never a link to one."""
+    try:
+        return stat.S_ISDIR(os.lstat(p).st_mode)
+    except OSError:
+        return False
+
+
+def plain_file(p: Path) -> bool:
+    """True for a regular file, never a link, a folder, a FIFO or a device."""
+    try:
+        return stat.S_ISREG(os.lstat(p).st_mode)
+    except OSError:
+        return False
+
+
+def read_capped(path: Path) -> str:
+    """The first READ_CAP bytes of a regular file, opened without following a link."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    with os.fdopen(fd, "rb") as f:
+        return f.read(READ_CAP).decode("utf-8", errors="replace")
+
+
+def going_note(path: Path) -> str:
+    """The note in one going/<slug>/<member>.md as one safe line: its lines that are not the heading or the
+    quoted row, minus any line private() rejects, cut at NOTE_CAP characters. The file stays as written."""
+    lines = read_capped(path).splitlines()
+    keep = (ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith(("#", ">")))
+    return " ".join(ln for ln in keep if not private(ln))[:NOTE_CAP].rstrip()
 
 
 def whos_going(root: Path, event: str | None = None) -> str:
-    """One line per going/<slug>.md, '<slug>: name, name', or the one file asked for."""
+    """One line per room folder in going/, '<slug>: ana (note), ben', members sorted; or the one asked for.
+
+    An old per-room going/<slug>.md is named with where its lines go, never read as members.
+    """
     folder = root / "going"
-    if event:
-        files = [folder / f"{slug(event)}.md"]
+    if not plain_dir(folder):
+        rooms = []
+    elif event:
+        s = slug(event)
+        old = folder / f"{s}.md"
+        rooms = [old if plain_file(old) and not plain_dir(folder / s) else folder / s]
     else:
-        files = sorted(p for p in folder.glob("*.md") if p.stem.lower() != "readme")
-    if not files:
+        rooms = sorted((p for p in folder.iterdir() if (plain_dir(p) or (plain_file(p) and p.suffix == ".md"))
+                        and p.stem.lower() != "readme"), key=lambda p: p.stem)
+    if not rooms:
         return "nobody is going anywhere yet"
-    return "\n".join(f"{p.stem}: {', '.join(names_in(p)) or 'nobody yet'}" for p in files)
+    out = []
+    for room in rooms:
+        if plain_file(room):
+            out.append(f"{room.stem}: old file going/{room.name}, move each line to going/{room.stem}/<member>.md")
+            continue
+        files = sorted((p for p in room.glob("*.md") if plain_file(p) and p.stem.lower() != "readme"),
+                       key=lambda p: p.stem.lower()) if plain_dir(room) else []
+        names = [f"{p.stem} ({n})" if (n := going_note(p)) else p.stem for p in files]
+        out.append(f"{room.name}: {', '.join(names) or 'nobody yet'}")
+    return "\n".join(out)
 
 
 def whats_on(root: Path) -> str:

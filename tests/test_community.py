@@ -102,22 +102,44 @@ def test_member_rejects_a_name_that_is_not_a_folder_name(repo, bad):
 
 # ---------------------------------------------------------------- going
 
-def test_going_creates_the_file_with_the_board_row_quoted(repo):
+def test_going_writes_my_own_file_with_the_board_row_quoted_then_the_note(repo):
     out = com.going(repo, "ana", "Agentic AI Melbourne", "demo  at\n6")
-    text = (repo / "going" / "agentic-ai-melbourne.md").read_text(encoding="utf-8")
-    assert text == ("# going: agentic-ai-melbourne\n"
+    text = (repo / "going" / "agentic-ai-melbourne" / "ana.md").read_text(encoding="utf-8")
+    assert text == ("# ana is going: agentic-ai-melbourne\n\n"
                     "> when: Thu 2026-11-05 17:30 | room: Agentic AI Melbourne | "
-                    "where: address on the event page | link: https://example.test/agentic\n"
-                    "- ana: demo at 6\n")
-    assert out == "going/agentic-ai-melbourne.md: - ana: demo at 6"
+                    "where: address on the event page | link: https://example.test/agentic\n\n"
+                    "demo at 6\n")
+    assert out == "going/agentic-ai-melbourne/ana.md: demo at 6"
+    assert not (repo / "going" / "agentic-ai-melbourne.md").exists(), "no per-room file any more"
 
 
-def test_going_is_idempotent_and_appends_other_members(repo):
-    com.going(repo, "ana", "couch-conversations")
-    assert "already going" in com.going(repo, "ana", "couch-conversations", "second time")
+def test_going_is_idempotent_and_a_second_member_gets_a_second_file(repo):
+    assert com.going(repo, "ana", "couch-conversations") == "going/couch-conversations/ana.md"
+    assert com.going(repo, "ana", "couch-conversations", "second time") == "ana is already going to couch-conversations"
+    folder = repo / "going" / "couch-conversations"
+    assert "second time" not in (folder / "ana.md").read_text(encoding="utf-8")
     com.going(repo, "ben", "couch-conversations", "  ")
-    text = (repo / "going" / "couch-conversations.md").read_text(encoding="utf-8")
-    assert text.count("ana") == 1 and text.endswith("- ana\n- ben\n")
+    assert sorted(p.name for p in folder.iterdir()) == ["ana.md", "ben.md"]
+    assert (folder / "ben.md").read_text(encoding="utf-8").startswith("# ben is going: couch-conversations\n\n> when: ")
+    assert (folder / "ben.md").read_text(encoding="utf-8").endswith("link: https://example.test/couch\n")
+
+
+def test_going_never_touches_another_members_file(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    ben = folder / "ben.md"
+    ben.write_bytes(b"# ben is going: couch-conversations\n\nby hand\n")
+    com.going(repo, "ana", "couch-conversations", "with ben")
+    assert ben.read_bytes() == b"# ben is going: couch-conversations\n\nby hand\n"
+    assert sorted(p.name for p in folder.iterdir()) == ["ana.md", "ben.md"]
+
+
+def test_going_sees_my_hand_written_file_in_any_case(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    (folder / "Ana.md").write_text("# Ana is going: couch-conversations\n", encoding="utf-8")
+    assert com.going(repo, "ana", "couch-conversations") == "ana is already going to couch-conversations"
+    assert [p.name for p in folder.iterdir()] == ["Ana.md"]
 
 
 BOARD2 = """# what's on: 2026-W46
@@ -137,13 +159,13 @@ def test_board_slugs_are_the_slug_column_in_board_order(repo):
 
 def test_going_resolves_a_short_slug_to_the_one_board_slug_that_contains_it(repo):
     (repo / "events" / "2026-W46.md").write_text(BOARD2, encoding="utf-8")
-    assert com.going(repo, "ana", "Agentic AI Melbourne", "demo") == "going/agentic-ai-melbourne-november-2026.md: - ana: demo"
-    text = (repo / "going" / "agentic-ai-melbourne-november-2026.md").read_text(encoding="utf-8")
-    assert text.startswith("# going: agentic-ai-melbourne-november-2026\n> when: Thu 2026-11-12 17:30 | ")
-    assert not (repo / "going" / "agentic-ai-melbourne.md").exists()
+    assert com.going(repo, "ana", "Agentic AI Melbourne", "demo") == "going/agentic-ai-melbourne-november-2026/ana.md: demo"
+    text = (repo / "going" / "agentic-ai-melbourne-november-2026" / "ana.md").read_text(encoding="utf-8")
+    assert text.startswith("# ana is going: agentic-ai-melbourne-november-2026\n\n> when: Thu 2026-11-12 17:30 | ")
+    assert not (repo / "going" / "agentic-ai-melbourne").exists()
     assert com.going(repo, "ana", "agentic ai melbourne") == "ana is already going to agentic-ai-melbourne-november-2026"
-    (repo / "going" / "clay-club.md").write_text("# going: clay-club\n", encoding="utf-8")
-    assert com.going(repo, "ben", "Clay Club") == "going/clay-club.md: - ben", "an existing file is the key as it is"
+    (repo / "going" / "clay-club").mkdir()
+    assert com.going(repo, "ben", "Clay Club") == "going/clay-club/ben.md", "an existing folder is the key as it is"
 
 
 def test_going_refuses_a_short_slug_that_several_board_slugs_contain(repo):
@@ -154,12 +176,13 @@ def test_going_refuses_a_short_slug_that_several_board_slugs_contain(repo):
 
 
 def test_going_to_a_room_not_on_the_board_has_no_quoted_row(repo):
-    com.going(repo, "ana", "Clay Club")
-    assert (repo / "going" / "clay-club.md").read_text(encoding="utf-8") == "# going: clay-club\n- ana\n"
+    com.going(repo, "ana", "Clay Club", "link https://example.test/clay")
+    assert (repo / "going" / "clay-club" / "ana.md").read_text(encoding="utf-8") == (
+        "# ana is going: clay-club\n\nlink https://example.test/clay\n")
     (repo / "events" / "2026-W45.md").unlink()
     (repo / "events" / "2026-W44.md").unlink()
     com.going(repo, "ana", "No Board")
-    assert (repo / "going" / "no-board.md").read_text(encoding="utf-8") == "# going: no-board\n- ana\n"
+    assert (repo / "going" / "no-board" / "ana.md").read_text(encoding="utf-8") == "# ana is going: no-board\n"
 
 
 @pytest.mark.parametrize("note", ["mail me: ana@example.test", "call 0412 345 678", "0412-34-5678"])
@@ -177,16 +200,6 @@ def test_going_refuses_an_empty_or_reserved_slug(repo, bad):
     assert not (repo / "going").exists()
 
 
-def test_going_sees_a_hand_written_name_in_bold_a_link_or_a_capital(repo):
-    path = repo / "going" / "couch-conversations.md"
-    path.parent.mkdir()
-    path.write_text("# going: couch-conversations\n- **Ana**: by hand\n- [Ben](https://example.test/ben): linked\n", encoding="utf-8")
-    assert com.names_in(path) == ["Ana", "Ben"]
-    assert com.going(repo, "ana", "couch-conversations") == "ana is already going to couch-conversations"
-    assert com.going(repo, "ben", "couch-conversations") == "ben is already going to couch-conversations"
-    assert path.read_text(encoding="utf-8").count("\n- ") == 2
-
-
 def test_board_row_is_found_by_header_name_whatever_the_column_order(tmp_path):
     b = tmp_path / "b.md"
     b.write_text("prose\n| link | slug |\n|---|---|\n| https://x | one |\n| short row |\n", encoding="utf-8")
@@ -199,15 +212,82 @@ def test_board_row_is_found_by_header_name_whatever_the_column_order(tmp_path):
 
 # ---------------------------------------------------------------- whos-going and whats-on
 
-def test_whos_going_lists_every_file_or_one(repo):
+def test_whos_going_reads_the_folders_members_sorted_notes_shown(repo):
     assert com.whos_going(repo) == "nobody is going anywhere yet"
-    com.going(repo, "ana", "Agentic AI Melbourne", "demo")
     com.going(repo, "ben", "Agentic AI Melbourne")
-    com.going(repo, "ben", "Clay Club")
+    com.going(repo, "ana", "Agentic AI Melbourne", "demo")
+    com.going(repo, "ben", "Clay Club", "with ana")
     (repo / "going" / "README.md").write_text("not a room\n", encoding="utf-8")
-    assert com.whos_going(repo) == "agentic-ai-melbourne: ana, ben\nclay-club: ben"
-    assert com.whos_going(repo, "Agentic AI Melbourne") == "agentic-ai-melbourne: ana, ben"
+    (repo / "going" / "clay-club" / "README.md").write_text("not a member\n", encoding="utf-8")
+    (repo / "going" / "empty-room").mkdir()
+    assert com.whos_going(repo) == "agentic-ai-melbourne: ana (demo), ben\nclay-club: ben (with ana)\nempty-room: nobody yet"
+    assert com.whos_going(repo, "Agentic AI Melbourne") == "agentic-ai-melbourne: ana (demo), ben"
     assert com.whos_going(repo, "nope") == "nope: nobody yet"
+
+
+def test_whos_going_reads_a_file_the_app_wrote_by_hand(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    (folder / "cal.md").write_text("# cal is going: couch-conversations\n\n> when: x\n\nfirst time\nsay hi\n", encoding="utf-8")
+    assert com.whos_going(repo) == "couch-conversations: cal (first time say hi)"
+
+
+def test_whos_going_skips_a_symlink_and_a_non_file_and_never_reads_them(repo):
+    (repo / "secret.txt").write_text("TOP-SECRET-KEY\n", encoding="utf-8")
+    (repo / "outside").mkdir()
+    (repo / "outside" / "ana.md").write_text("# ana is going: y\n\nOUTSIDE-SECRET\n", encoding="utf-8")
+    com.going(repo, "ana", "couch-conversations", "demo")
+    folder = repo / "going" / "couch-conversations"
+    (folder / "evil.md").symlink_to(repo / "secret.txt")
+    (folder / "dir.md").mkdir()
+    (repo / "going" / "linked-room").symlink_to(repo / "outside", target_is_directory=True)
+    assert com.whos_going(repo) == "couch-conversations: ana (demo)"
+    assert com.whos_going(repo, "couch-conversations") == "couch-conversations: ana (demo)"
+    assert com.whos_going(repo, "linked-room") == "linked-room: nobody yet"
+
+
+def test_going_refuses_a_symlinked_room_folder_and_writes_nothing_through_it(repo):
+    (repo / "outside").mkdir()
+    (repo / "going").mkdir()
+    (repo / "going" / "couch-conversations").symlink_to(repo / "outside", target_is_directory=True)
+    with pytest.raises(com.Refuse, match="not a plain folder"):
+        com.going(repo, "ana", "couch-conversations")
+    assert list((repo / "outside").iterdir()) == []
+
+
+def test_whos_going_reads_a_going_file_only_up_to_2_kb(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    (folder / "cal.md").write_text("# cal is going: couch-conversations\n" + "\n" * 10_000 + "AFTER-2KB\n", encoding="utf-8")
+    assert com.whos_going(repo) == "couch-conversations: cal"
+    big = folder / "big.md"
+    big.write_text("x" * 10_240, encoding="utf-8")
+    assert len(com.read_capped(big)) == 2048
+
+
+def test_whos_going_drops_a_note_line_with_contact_details_and_caps_the_note(repo):
+    folder = repo / "going" / "couch-conversations"
+    folder.mkdir(parents=True)
+    text = "# bob is going: couch-conversations\n\ncall me 0412 345 678\nmail bob@example.test\nfirst time\n"
+    (folder / "bob.md").write_text(text, encoding="utf-8")
+    (folder / "cal.md").write_text("# cal is going: couch-conversations\n\n" + "x" * 300 + "\n", encoding="utf-8")
+    out = com.whos_going(repo)
+    assert out.startswith("couch-conversations: bob (first time), cal (")
+    assert "0412" not in out and "@" not in out
+    assert len(com.going_note(folder / "cal.md")) == 120
+    assert (folder / "bob.md").read_text(encoding="utf-8") == text, "the file stays as written"
+
+
+def test_whos_going_names_an_old_per_room_file_loudly(repo):
+    (repo / "going").mkdir()
+    (repo / "going" / "clay-club.md").write_text("# going: clay-club\n- ana: demo\n", encoding="utf-8")
+    (repo / "going" / "notes.txt").write_text("not a room\n", encoding="utf-8")
+    com.going(repo, "ben", "couch-conversations")
+    assert com.whos_going(repo) == (
+        "clay-club: old file going/clay-club.md, move each line to going/clay-club/<member>.md\n"
+        "couch-conversations: ben")
+    assert com.whos_going(repo, "Clay Club") == (
+        "clay-club: old file going/clay-club.md, move each line to going/clay-club/<member>.md")
 
 
 def test_whats_on_prints_the_newest_board_capped_at_40_lines(repo):
@@ -383,9 +463,9 @@ def test_main_runs_every_command(repo, capsys, monkeypatch):
     assert run(repo, "whats-on") == 0
     assert "agentic-ai-melbourne" in capsys.readouterr().out
     assert run(repo, "going", "Agentic AI Melbourne", "--as", "ana", "--note", "demo") == 0
-    assert capsys.readouterr().out == "going/agentic-ai-melbourne.md: - ana: demo\n"
+    assert capsys.readouterr().out == "going/agentic-ai-melbourne/ana.md: demo\n"
     assert run(repo, "whos-going") == 0
-    assert capsys.readouterr().out == "agentic-ai-melbourne: ana\n"
+    assert capsys.readouterr().out == "agentic-ai-melbourne: ana (demo)\n"
     assert run(repo, "knows", "ben", "--as", "ana") == 0
     assert run(repo, "network", "--as", "ana") == 0
     assert "- ben" in capsys.readouterr().out

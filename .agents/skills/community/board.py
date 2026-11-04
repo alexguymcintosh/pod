@@ -4,7 +4,7 @@
 Reads the features fetch.py wrote (properties title, start, end, url, community and venue or location),
 keeps the rooms that start within the window (--from, default today in Australia/Melbourne, for --days,
 default 7), sorts them by start and writes one page: a header line with the window, then the table
-when, room, where, link, community, slug. The slug is the key of going/<slug>.md, the same rule as the
+when, room, where, link, community, slug. The slug is the key of going/<slug>/, the same rule as the
 community skill's: lower case, runs of [a-z0-9] joined by '-', at most 60 characters. Deterministic: the
 same geojson and window give the same page. A feature whose start is not a date is named on stderr and
 skipped. Python 3.11+, standard library only.
