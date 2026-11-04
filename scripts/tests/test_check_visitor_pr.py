@@ -207,6 +207,43 @@ def test_rule1_rename_of_anothers_file_fails(repo, capsys):
 
 # ---------------------------------------------------------------- rule 2: plain, small, UTF-8, nothing private
 
+@pytest.mark.parametrize("name", ["x.html", "a.svg", "run.js", "notes.md", "README.MD", "readme.md", "sub/README.md"])
+def test_rule2_visitor_folder_holds_only_the_known_md_files(repo, capsys, name):
+    """Pages serves the tree as it is, so a merged people/<login>/x.html or .svg would run script on the club's
+    origin: a member's folder holds only README.md, knows.md, network.md and rooms.md (people/_template, alex)."""
+    head(repo, {f"people/ana/{name}": "<script>alert(1)</script>\n"})
+    rc, out = run(repo, capsys)
+    assert rc == 1
+    assert any("rule 2" in ln and f"people/ana/{name}" in ln and "README.md, knows.md, network.md, rooms.md" in ln
+               for ln in fails(out)), out
+
+
+def test_rule2_folder_known_files_and_members_json_pass(repo, capsys):
+    head(repo, {f"people/ana/{n}": f"# {n}\n" for n in ("README.md", "knows.md", "network.md", "rooms.md")})
+    assert run(repo, capsys)[0] == 0
+    head(repo, {"people/members.json": "[]\n", "people/_template/knows.md": "# knows\n", "going/README.md": "# g\n"})
+    assert run(repo, capsys, author=OWNER)[0] == 0
+
+
+@pytest.mark.parametrize("path", ["going/x.html", f"going/{SLUG}/ana.svg", f"going/{SLUG}/x/ana.md", "going/a.md"])
+def test_rule2_going_holds_only_member_md_files(repo, capsys, path):
+    head(repo, {path: "x\n"})
+    rc, out = run(repo, capsys, author=OWNER)
+    assert rc == 1
+    assert any("rule 2" in ln and path in ln and "going/<slug>/<member>.md" in ln for ln in fails(out)), out
+
+
+def test_rule2_owner_proof_pr_with_an_html_file_fails(repo, capsys):
+    """The owner's proof PR (the workflow edited to exit 0, a script page in a member's folder) fails on the file
+    type, so the base's workflow shows FAIL even for the owner."""
+    head(repo, {".github/workflows/visitor-pr.yml": "on: push\njobs: {}\n",
+                "people/bob/x.html": "<script>alert(1)</script>\n"})
+    rc, out = run(repo, capsys, author=OWNER)
+    assert rc == 1
+    assert [ln for ln in fails(out) if "rule 1" in ln] == []
+    assert any("rule 2" in ln and "people/bob/x.html" in ln for ln in fails(out)), out
+
+
 def test_rule2_symlink_fails(repo, capsys):
     (repo / "people" / "ana").mkdir(parents=True)
     os.symlink("../ben/README.md", repo / "people" / "ana" / "README.md")
@@ -400,14 +437,65 @@ def test_rule4_empty_pr_passes(repo, capsys):
 
 # ---------------------------------------------------------------- the workflow: pull_request, read-only, no injection
 
-def test_workflow_runs_the_check_safely():
-    text = (ROOT / ".github" / "workflows" / "harness-gates.yml").read_text(encoding="utf-8")
-    wf = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))  # code, not comments
-    assert "pull_request_target" not in wf
-    assert "secrets." not in wf
-    job = wf[wf.index("  visitor-pr:"):]
-    assert re.search(r"^    permissions:\n      contents: read$", job, re.M)
-    assert "check_visitor_pr.py" in job
-    for ln in wf.splitlines():  # an expression from the event never lands in a shell line, only in env: or if:
-        if "${{ github.event" in ln:
-            assert re.match(r"^\s+([A-Z_]+|if):\s", ln), ln
+def code(name: str) -> str:
+    """A workflow file's lines without its comments."""
+    text = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+
+
+def test_workflow_visitor_pr_reads_the_pr_as_data_only():
+    """pull_request_target runs the base's workflow with the base checked out; the PR is fetched as git objects and
+    nothing of it is checked out, installed or run; read-only token, no secrets, no cache."""
+    wf = code("visitor-pr.yml")
+    assert re.search(r"^on:\n  pull_request_target:\n    types: \[opened, synchronize, reopened\]$", wf, re.M), wf
+    assert not re.search(r"^\s+pull_request:", wf, re.M)
+    assert re.search(r"^jobs:\n  visitor-pr:$", wf, re.M)
+    perms = re.findall(r"^\s*permissions:\n((?:\s+\S+: \S+\n?)+)", wf, re.M)
+    assert perms and all(p.split() == ["contents:", "read"] for p in perms), perms
+    for banned in ("secrets.", "cache", "setup-", "pip", "ref:", "head_ref", "head.ref", "github.token"):
+        assert banned not in wf, banned
+    assert "persist-credentials: false" in wf
+    assert 'git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"' in wf
+    assert re.search(r'^\s+run: python3 -I scripts/check_visitor_pr\.py .*--fetched FETCH_HEAD', wf, re.M), wf
+    for ln in wf.splitlines():  # an expression from the event lands only in env:, never in a run line
+        if "${{" in ln:
+            assert re.match(r"^\s+[A-Z_]+: \$\{\{ github\.event\.[a-z_.]+ \}\}$", ln), ln
+
+
+def test_workflow_harness_gates_has_no_visitor_job():
+    wf = code("harness-gates.yml")
+    assert "visitor-pr" not in wf and "check_visitor_pr" not in wf and "pull_request_target" not in wf
+    assert "./test tests scripts/tests" in wf
+
+
+def test_codeowners_owns_github_folder():
+    lines = (ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8").splitlines()
+    assert "/.github/ @alexguymcintosh" in lines
+
+
+def test_fetched_head_must_equal_the_event_head(repo, capsys):
+    head(repo, {f"going/{SLUG}/ana.md": going()})
+    tip = git(repo, "rev-parse", "HEAD")
+    argv = ["--repo", str(repo), "--base", "base", "--head", tip, "--author", "ana", "--owner", OWNER]
+    assert chk.main(argv + ["--fetched", "HEAD"]) == 0
+    capsys.readouterr()
+    assert chk.main(argv + ["--fetched", "base"]) == 1
+    out = capsys.readouterr().out
+    assert any("fetched" in ln and tip in ln for ln in fails(out)), out
+    assert chk.main(argv + ["--fetched", "no-such-ref"]) == 1
+
+
+def test_rule1_visitor_editing_github_folder_fails(repo, capsys):
+    head(repo, {".github/workflows/visitor-pr.yml": "on: push\n"})
+    rc, out = run(repo, capsys)
+    assert rc == 1
+    assert any("rule 1" in ln and ".github/workflows/visitor-pr.yml" in ln for ln in fails(out)), out
+
+
+def test_visitor_workflow_edit_and_html_page_fail_on_both_rules(repo, capsys):
+    head(repo, {".github/workflows/visitor-pr.yml": "on: push\njobs: {}\n",
+                "people/bob/x.html": "<script>alert(1)</script>\n"})
+    rc, out = run(repo, capsys, author="bob")
+    assert rc == 1
+    assert any("rule 1" in ln and ".github/workflows/visitor-pr.yml" in ln for ln in fails(out)), out
+    assert any("rule 2" in ln and "people/bob/x.html" in ln and "README.md, knows.md" in ln for ln in fails(out)), out

@@ -1,0 +1,2 @@
+# Only the owner approves a change to the workflows and the CODEOWNERS file itself.
+/.github/ @alexguymcintosh
